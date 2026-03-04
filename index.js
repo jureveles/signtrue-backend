@@ -51,7 +51,30 @@ app.get('/signtrue/activities/:day', async (req, res) => {
   }
 });
 
+// 3. Route to create a new activity in the signtrue schema
+app.post('/signtrue/activities', async (req, res) => {
+  const { title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity } = req.body;
+  
+  try {
+    const query = `
+      INSERT INTO signtrue.activities 
+      (title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+      RETURNING *`;
+    
+    const values = [title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity];
+    
+    const result = await pool.query(query, values);
+    res.status(201).json(result.rows[0]); // Returns the created activity with its new ID
+  } catch (err) {
+    console.error("Error creating activity:", err);
+    res.status(500).json({ error: "Database error creating activity" });
+  }
+});
+
+
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
