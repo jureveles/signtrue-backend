@@ -38,9 +38,9 @@ app.get('/student/:id', async (req, res) => {
 app.get('/signtrue/activities/:day', async (req, res) => {
   const { day } = req.params;
   try {
-    // Queries the activities table specifically within the signtrue schema
     const result = await pool.query(
-      'SELECT title, instructor, start_time, end_time, location FROM signtrue.activities WHERE day_of_week = $1 ORDER BY start_time ASC',
+      // ADDED: id, instructor, and activity_date to the SELECT list
+      'SELECT id, title, instructor, start_time, end_time, location, activity_date, max_capacity FROM signtrue.activities WHERE day_of_week = $1 ORDER BY start_time ASC',
       [day]
     );
 
@@ -76,5 +76,6 @@ app.post('/signtrue/activities', async (req, res) => {
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
