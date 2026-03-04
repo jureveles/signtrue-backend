@@ -72,10 +72,25 @@ app.post('/signtrue/activities', async (req, res) => {
   }
 });
 
+// New route to get the school name
+app.get('/signtrue/school-name', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT name FROM signtrue.schools LIMIT 1');
+    if (result.rows.length > 0) {
+      res.json({ name: result.rows[0].name });
+    } else {
+      res.status(404).json({ error: "School not found" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
