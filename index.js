@@ -72,14 +72,19 @@ app.post('/signtrue/activities', async (req, res) => {
   }
 });
 
-// New route to get the school name
-app.get('/signtrue/school-name', async (req, res) => {
+// UPDATED: Get ALL school names as a list
+app.get('/signtrue/schools-list', async (req, res) => {
   try {
-    const result = await pool.query('SELECT name FROM signtrue.schools LIMIT 1');
+    // 1. Remove "LIMIT 1" to get all schools
+    const result = await pool.query('SELECT name FROM signtrue.schools');
+    
     if (result.rows.length > 0) {
-      res.json({ name: result.rows[0].name });
+      // 2. Map the rows so you send ["School A", "School B"] 
+      // instead of [{"name": "School A"}]
+      const schoolNames = result.rows.map(row => row.name);
+      res.json(schoolNames); 
     } else {
-      res.status(404).json({ error: "School not found" });
+      res.json([]); // Return empty list if no schools exist
     }
   } catch (err) {
     console.error(err);
@@ -90,6 +95,7 @@ app.get('/signtrue/school-name', async (req, res) => {
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
