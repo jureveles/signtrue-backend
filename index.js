@@ -34,7 +34,29 @@ app.get('/student/:id', async (req, res) => {
   }
 });
 
-// 2. Route to get activities by day for the SignTrue schema
+// --- STAFF / TEACHER ROUTE ---
+// 2. Route to find a staff member by their ID
+app.get('/staff/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      // We select the columns shown in your database screenshot
+      'SELECT local_id, first_name, last_name, role FROM signtrue.staff WHERE local_id = $1',
+      [id]
+    );
+
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      res.status(404).json({ message: "Staff member not found" });
+    }
+  } catch (err) {
+    console.error("Staff lookup error:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// 3. Route to get activities by day for the SignTrue schema
 app.get('/signtrue/activities/:day', async (req, res) => {
   const { day } = req.params;
   try {
@@ -51,7 +73,7 @@ app.get('/signtrue/activities/:day', async (req, res) => {
   }
 });
 
-// 3. Route to create a new activity in the signtrue schema
+// 4. Route to create a new activity in the signtrue schema
 app.post('/signtrue/activities', async (req, res) => {
   const { title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity } = req.body;
   
@@ -72,7 +94,7 @@ app.post('/signtrue/activities', async (req, res) => {
   }
 });
 
-// UPDATED: Get ALL school names as a list
+// 2. Route to Get ALL school names as a list
 app.get('/signtrue/schools-list', async (req, res) => {
   try {
     // 1. Remove "LIMIT 1" to get all schools
@@ -95,6 +117,7 @@ app.get('/signtrue/schools-list', async (req, res) => {
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
