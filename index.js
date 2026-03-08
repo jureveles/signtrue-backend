@@ -12,6 +12,21 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Middleware to check for our secret key
+const checkSecretKey = (req, res, next) => {
+  const userKey = req.headers['x-api-key']; // Look for the key in the headers
+  
+  if (userKey === process.env.MY_SECRET_KEY) {
+    next(); // Key matches! Proceed to the data
+  } else {
+    res.status(403).json({ error: "Unauthorized access blocked." });
+  }
+};
+
+// Apply this to your staff route
+app.get('/staff/:id', checkSecretKey, async (req, res) => {
+  // ... your existing code ...
+});
 // --- ROUTES ---
 
 // 1. Route to find a student by their ID
@@ -117,6 +132,7 @@ app.get('/signtrue/schools-list', async (req, res) => {
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
