@@ -16,7 +16,6 @@ const pool = new Pool({
 const checkSecretKey = (req, res, next) => {
   const userKey = req.headers['x-api-key']; 
   
-  // Use the key you set in Render's Environment Variables
   if (userKey === process.env.MY_SECRET_KEY) {
     next(); 
   } else {
@@ -25,9 +24,9 @@ const checkSecretKey = (req, res, next) => {
   }
 };
 
-// --- ROUTES (All now protected by checkSecretKey) ---
+// --- ROUTES ---
 
-// 1. Staff Lookup (Merged and Secured)
+// 1. Staff Lookup
 app.get('/staff/:id', checkSecretKey, async (req, res) => {
   const { id } = req.params;
   try {
@@ -35,7 +34,6 @@ app.get('/staff/:id', checkSecretKey, async (req, res) => {
       'SELECT local_id, first_name, last_name, role FROM signtrue.staff WHERE local_id = $1',
       [id]
     );
-
     if (result.rows.length > 0) {
       res.json(result.rows[0]);
     } else {
@@ -55,7 +53,6 @@ app.get('/student/:id', checkSecretKey, async (req, res) => {
       'SELECT local_id, last_name, first_name, chosen_name, grade_level, special_ed FROM signtrue.students WHERE local_id = $1',
       [id]
     );
-
     if (result.rows.length > 0) {
       res.json(result.rows[0]);
     } else {
@@ -91,8 +88,7 @@ app.post('/signtrue/activities', checkSecretKey, async (req, res) => {
       (title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
       RETURNING *`;
-    const values = [title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity];
-    const result = await pool.query(query, values);
+    const result = await pool.query(query, [title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Error creating activity:", err);
@@ -104,88 +100,75 @@ app.post('/signtrue/activities', checkSecretKey, async (req, res) => {
 app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
   try {
     const result = await pool.query('SELECT name FROM signtrue.schools');
-    const schoolNames = result.rows.map(row => row.name);
-    res.json(schoolNames); 
+    res.json(result.rows.map(row => row.name)); 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Database error" });
   }
 });
 
-// 6. Record Attendance (Cleaned up version)
+// 6. Record/Update Attendance (The "Save" Logic)
 app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
 
   try {
+    // UPSERT: If record exists (student + date match), update the status. Else, insert.
     const query = `
       INSERT INTO signtrue.attendance (student_id, activity_id, teacher_id, activity_date, status)
       VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (student_id, activity_date) 
+      DO UPDATE SET status = EXCLUDED.status, teacher_id = EXCLUDED.teacher_id
       RETURNING *`;
     
     const values = [student_id, activity_id, teacher_id, activity_date, status || 'Pending'];
     const result = await pool.query(query, values);
     
-    res.status(201).json({ message: "Attendance recorded!", data: result.rows[0] });
+    res.status(201).json({ message: "Attendance processed!", data: result.rows[0] });
   } catch (err) {
-    if (err.code === '23505') {
-      res.status(400).json({ error: "Student is already registered for an activity today." });
-    } else {
-      console.error("Attendance Error:", err);
-      res.status(500).json({ error: "Database error recording attendance" });
-    }
+    console.error("Attendance Error:", err);
+    res.status(500).json({ error: "Database error recording attendance" });
   }
 });
 
-// 7. Get student registrations for a specific date
+// 7. Get individual student registrations (For schedule view)
 app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, res) => {
   const { studentId } = req.params;
-  const { date } = req.query; // Matches ?date=yyyy-MM-dd in your Flutter call
-
+  const { date } = req.query;
   try {
-    const query = `
-      SELECT activity_id 
-      FROM signtrue.attendance 
-      WHERE student_id = $1 AND activity_date = $2
-    `;
-    const values = [studentId, date];
-    const result = await pool.query(query, values);
-
-    // Sends back an array like [{"activity_id": 1}]
+    const query = 'SELECT activity_id FROM signtrue.attendance WHERE student_id = $1 AND activity_date = $2';
+    const result = await pool.query(query, [studentId, date]);
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching registrations:", err);
-    res.status(500).json({ error: "Database error fetching registrations" });
+    res.status(500).json({ error: "Database error" });
   }
 });
 
-// 8. Get all students registered for a specific activity on a specific date
+// 8. Get all students for a specific class (For teacher dashboard)
 app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req, res) => {
   const { activityId } = req.params;
-  const { date } = req.query; // Captures ?date=yyyy-MM-dd
+  const { date } = req.query;
 
   try {
     const query = `
-      SELECT 
-        a.student_id, 
-        a.status, 
-        s.first_name, 
-        s.last_name, 
-        s.chosen_name
+      SELECT a.student_id, a.status, s.first_name, s.last_name, s.chosen_name
       FROM signtrue.attendance a
       JOIN signtrue.students s ON a.student_id = s.local_id
       WHERE a.activity_id = $1 AND a.activity_date = $2
-    `;
+      ORDER BY s.last_name ASC, s.first_name ASC`;
+      
     const result = await pool.query(query, [activityId, date]);
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching activity attendance:", err);
-    res.status(500).json({ error: "Database error fetching attendance" });
+    res.status(500).json({ error: "Database error" });
   }
 });
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
