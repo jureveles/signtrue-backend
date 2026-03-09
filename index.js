@@ -112,22 +112,22 @@ app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
   }
 });
 
-// 6. Record Attendance
+// 6. Record Attendance (Cleaned up version)
 app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
-  const { student_id, activity_id, teacher_id, activity_date } = req.body;
+  const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
 
   try {
-    const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
     const query = `
       INSERT INTO signtrue.attendance (student_id, activity_id, teacher_id, activity_date, status)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *`;
+    
     const values = [student_id, activity_id, teacher_id, activity_date, status || 'Pending'];
     const result = await pool.query(query, values);
     
     res.status(201).json({ message: "Attendance recorded!", data: result.rows[0] });
   } catch (err) {
-    if (err.code === '23505') { // PostgreSQL unique violation error code
+    if (err.code === '23505') {
       res.status(400).json({ error: "Student is already registered for an activity today." });
     } else {
       console.error("Attendance Error:", err);
@@ -186,6 +186,7 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
