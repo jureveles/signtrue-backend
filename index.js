@@ -158,9 +158,35 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
   }
 });
 
+// 8. Get all students registered for a specific activity on a specific date
+app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req, res) => {
+  const { activityId } = req.params;
+  const { date } = req.query; // Captures ?date=yyyy-MM-dd
+
+  try {
+    const query = `
+      SELECT 
+        a.student_id, 
+        a.status, 
+        s.first_name, 
+        s.last_name, 
+        s.chosen_name
+      FROM signtrue.attendance a
+      JOIN signtrue.students s ON a.student_id = s.local_id
+      WHERE a.activity_id = $1 AND a.activity_date = $2
+    `;
+    const result = await pool.query(query, [activityId, date]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching activity attendance:", err);
+    res.status(500).json({ error: "Database error fetching attendance" });
+  }
+});
+
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
