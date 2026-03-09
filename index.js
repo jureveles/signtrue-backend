@@ -136,9 +136,32 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   }
 });
 
+// 7. Get student registrations for a specific date
+app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, res) => {
+  const { studentId } = req.params;
+  const { date } = req.query; // Matches ?date=yyyy-MM-dd in your Flutter call
+
+  try {
+    const query = `
+      SELECT activity_id 
+      FROM signtrue.attendance 
+      WHERE student_id = $1 AND activity_date = $2
+    `;
+    const values = [studentId, date];
+    const result = await pool.query(query, values);
+
+    // Sends back an array like [{"activity_id": 1}]
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching registrations:", err);
+    res.status(500).json({ error: "Database error fetching registrations" });
+  }
+});
+
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
