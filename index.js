@@ -117,12 +117,12 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   const { student_id, activity_id, teacher_id, activity_date } = req.body;
 
   try {
+    const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
     const query = `
-      INSERT INTO signtrue.attendance (student_id, activity_id, teacher_id, activity_date)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO signtrue.attendance (student_id, activity_id, teacher_id, activity_date, status)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *`;
-    
-    const values = [student_id, activity_id, teacher_id, activity_date];
+    const values = [student_id, activity_id, teacher_id, activity_date, status || 'Pending'];
     const result = await pool.query(query, values);
     
     res.status(201).json({ message: "Attendance recorded!", data: result.rows[0] });
@@ -161,6 +161,7 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SignTrue server running on port ${PORT}`));
+
 
 
 
