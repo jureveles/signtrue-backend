@@ -66,7 +66,6 @@ app.get('/student/:id', checkSecretKey, async (req, res) => {
         s.first_name, 
         s.chosen_name, 
         s.grade_level, 
-        s.special_ed, 
         sch.name AS school_name 
        FROM signtrue.students s
        LEFT JOIN signtrue.schools sch ON s.school_id = sch.id
