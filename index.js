@@ -31,10 +31,20 @@ app.get('/staff/:id', checkSecretKey, async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      'SELECT local_id, first_name, last_name, role FROM signtrue.staff WHERE local_id = $1',
+      `SELECT 
+        st.local_id, 
+        st.first_name, 
+        st.last_name, 
+        st.role, 
+        sch.name AS school_name 
+       FROM signtrue.staff st
+       LEFT JOIN signtrue.schools sch ON st.school_id = sch.id
+       WHERE st.local_id = $1`,
       [id]
     );
+
     if (result.rows.length > 0) {
+      // This will now return the staff info PLUS "school_name"
       res.json(result.rows[0]);
     } else {
       res.status(404).json({ message: "Staff member not found" });
@@ -50,16 +60,28 @@ app.get('/student/:id', checkSecretKey, async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      'SELECT local_id, last_name, first_name, chosen_name, grade_level, special_ed FROM signtrue.students WHERE local_id = $1',
+      `SELECT 
+        s.local_id, 
+        s.last_name, 
+        s.first_name, 
+        s.chosen_name, 
+        s.grade_level, 
+        s.special_ed, 
+        sch.name AS school_name 
+       FROM signtrue.students s
+       LEFT JOIN signtrue.schools sch ON s.school_id = sch.id
+       WHERE s.local_id = $1`,
       [id]
     );
+
     if (result.rows.length > 0) {
+      // result.rows[0] will now include the "school_name" field!
       res.json(result.rows[0]);
     } else {
       res.status(404).json({ message: "Student not found" });
     }
   } catch (err) {
-    console.error(err);
+    console.error("Database Error in Student Lookup:", err);
     res.status(500).json({ error: "Database error" });
   }
 });
