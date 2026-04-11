@@ -32,7 +32,7 @@ app.post('/signtrue/login', checkSecretKey, async (req, res) => {
       SELECT u.*, sch.name AS school_name 
       FROM signtrue.users u
       LEFT JOIN signtrue.schools sch ON u.school_id = sch.id
-      WHERE u.local_id = $1 AND u.password = $2`;
+      WHERE u.local_id = $1 AND u.password_hash = $2
     
     const result = await pool.query(query, [local_id, password]);
 
