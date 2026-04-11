@@ -18,7 +18,7 @@ const checkSecretKey = (req, res, next) => {
   if (userKey === process.env.MY_SECRET_KEY) {
     next();
   } else {
-    res.status(403).json({ error: "Unauthorized access blocked." });
+      res.status(403).json({ error: "Unauthorized access blocked." });
   }
 };
 
@@ -284,6 +284,79 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
   }
 });
 
+// 10. GET ALL RESERVATIONS FOR AN ORGANIZATION / SCHOOL
+app.get('/signtrue/reservations/school/:schoolId', checkSecretKey, async (req, res) => {
+  const { schoolId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        r.id,
+        r.resource_id,
+        r.user_id,
+        r.reservation_date,
+        r.start_time,
+        r.end_time,
+        r.status,
+        r.notes,
+        r.created_at,
+        res.name AS resource_name,
+        res.location AS resource_location,
+        res.capacity AS resource_capacity,
+        u.first_name,
+        u.last_name,
+        u.username,
+        u.local_id
+      FROM signtrue.reservations r
+      JOIN signtrue.resources res ON r.resource_id = res.id
+      JOIN signtrue.users u ON r.user_id = u.id
+      WHERE res.school_id = $1
+      ORDER BY r.reservation_date ASC, r.start_time ASC
+      `,
+      [schoolId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fetch school reservations error:", err);
+    res.status(500).json({ error: "Error fetching school reservations" });
+  }
+});
+
+// 11. UPDATE RESERVATION STATUS
+app.patch('/signtrue/reservations/:reservationId/status', checkSecretKey, async (req, res) => {
+  const { reservationId } = req.params;
+  const { status } = req.body;
+
+  const allowedStatuses = ['pending', 'approved', 'denied', 'cancelled'];
+
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: "Invalid reservation status" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE signtrue.reservations
+      SET status = $1
+      WHERE id = $2
+      RETURNING *
+      `,
+      [status, reservationId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Update reservation status error:", err);
+    res.status(500).json({ error: "Could not update reservation status" });
+  }
+});
+
 // ===========================================================================
 // SERVER START
 // ===========================================================================
@@ -293,8 +366,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`SignTrue Server Active on Port ${PORT}`);
 });
-
-
 
 
 
