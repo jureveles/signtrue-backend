@@ -43,7 +43,7 @@ app.post('/signtrue/login', checkSecretKey, async (req, res) => {
 
     if (result.rows.length > 0) {
       const user = result.rows[0];
-      delete user.password_hash; // Remove sensitive field
+      delete user.password_hash;
       res.json(user);
     } else {
       res.status(401).json({ error: "Invalid ID or password" });
@@ -60,10 +60,12 @@ app.get('/signtrue/activities/:day', checkSecretKey, async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT * 
-       FROM signtrue.activities 
-       WHERE day_of_week = $1 
-       ORDER BY start_time ASC`,
+      `
+      SELECT * 
+      FROM signtrue.activities 
+      WHERE day_of_week = $1 
+      ORDER BY start_time ASC
+      `,
       [day]
     );
 
@@ -76,17 +78,34 @@ app.get('/signtrue/activities/:day', checkSecretKey, async (req, res) => {
 
 // 3. CREATE NEW ACTIVITY
 app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
-  const { title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity } = req.body;
+  const {
+    title,
+    instructor,
+    start_time,
+    end_time,
+    day_of_week,
+    activity_date,
+    location,
+    max_capacity
+  } = req.body;
 
   try {
     const query = `
       INSERT INTO signtrue.activities 
       (title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-      RETURNING *`;
+      RETURNING *
+    `;
 
     const result = await pool.query(query, [
-      title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity
+      title,
+      instructor,
+      start_time,
+      end_time,
+      day_of_week,
+      activity_date,
+      location,
+      max_capacity
     ]);
 
     res.status(201).json(result.rows[0]);
@@ -105,7 +124,8 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
       SELECT a.status, u.first_name || ' ' || u.last_name AS student_name
       FROM signtrue.attendance a
       JOIN signtrue.users u ON a.student_id = u.local_id
-      WHERE a.activity_id = $1`;
+      WHERE a.activity_id = $1
+    `;
 
     const result = await pool.query(query, [activityId]);
 
@@ -129,10 +149,15 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
       DO UPDATE SET 
         status = EXCLUDED.status, 
         teacher_id = EXCLUDED.teacher_id
-      RETURNING *`;
+      RETURNING *
+    `;
 
     const result = await pool.query(query, [
-      student_id, activity_id, teacher_id, activity_date, status
+      student_id,
+      activity_id,
+      teacher_id,
+      activity_date,
+      status
     ]);
 
     res.status(201).json(result.rows[0]);
@@ -153,6 +178,109 @@ app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
   } catch (err) {
     console.error("Fetch schools error:", err);
     res.status(500).json({ error: "Error fetching schools" });
+  }
+});
+
+// 7. GET RESOURCES FOR AN ORGANIZATION
+app.get('/signtrue/resources/:schoolId', checkSecretKey, async (req, res) => {
+  const { schoolId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        school_id,
+        name,
+        description,
+        location,
+        capacity,
+        resource_type,
+        is_active,
+        created_at
+      FROM signtrue.resources
+      WHERE school_id = $1
+        AND is_active = true
+      ORDER BY name ASC
+      `,
+      [schoolId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fetch resources error:", err);
+    res.status(500).json({ error: "Error fetching resources" });
+  }
+});
+
+// 8. GET RESERVATIONS FOR A RESOURCE ON A GIVEN DATE
+app.get('/signtrue/reservations/:resourceId/:date', checkSecretKey, async (req, res) => {
+  const { resourceId, date } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        r.id,
+        r.resource_id,
+        r.user_id,
+        r.reservation_date,
+        r.start_time,
+        r.end_time,
+        r.status,
+        r.notes,
+        r.created_at,
+        u.first_name,
+        u.last_name,
+        u.username
+      FROM signtrue.reservations r
+      JOIN signtrue.users u ON r.user_id = u.id
+      WHERE r.resource_id = $1
+        AND r.reservation_date = $2
+        AND r.status IN ('pending', 'approved')
+      ORDER BY r.start_time ASC
+      `,
+      [resourceId, date]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fetch reservations error:", err);
+    res.status(500).json({ error: "Error fetching reservations" });
+  }
+});
+
+// 9. CREATE A RESERVATION
+app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
+  const {
+    resource_id,
+    user_id,
+    reservation_date,
+    start_time,
+    end_time,
+    notes
+  } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      INSERT INTO signtrue.reservations
+      (resource_id, user_id, reservation_date, start_time, end_time, status, notes)
+      VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+      RETURNING *
+      `,
+      [resource_id, user_id, reservation_date, start_time, end_time, notes || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Create reservation error:", err);
+
+    if (err.constraint === 'no_overlapping_reservations') {
+      return res.status(409).json({ error: "Time slot already reserved" });
+    }
+
+    res.status(500).json({ error: "Could not create reservation" });
   }
 });
 
