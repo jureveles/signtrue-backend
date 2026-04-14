@@ -266,7 +266,7 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
       `
       INSERT INTO signtrue.reservations
       (resource_id, user_id, reservation_date, start_time, end_time, status, notes)
-      VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+      VALUES ($1, $2, $3, $4, $5, 'approved', $6)
       RETURNING *
       `,
       [resource_id, user_id, reservation_date, start_time, end_time, notes || null]
