@@ -309,6 +309,18 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
     
     const resourceName =
       resourceResult.rows[0]?.name || 'Reservation';
+
+    const userResult = await pool.query(
+      `
+      SELECT first_name, last_name
+      FROM signtrue.users
+      WHERE id = $1
+      `,
+      [user_id]
+    );
+    
+    const staffName = `${userResult.rows[0]?.first_name || ''} ${userResult.rows[0]?.last_name || ''}`.trim() || 'Staff member';
+        
     
     // =====================================================
     // CREATE GOOGLE CALENDAR EVENT
@@ -316,10 +328,13 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
 
     try {
       const calendarEvent = await createCalendarEvent({
-        summary: `${resourceName} Reservation`,
-        description:
-          notes ||
-          `Reservation created through SignTrue`,
+
+       summary: `${resourceName} - ${staffName}`,
+       description:
+         notes
+           ? `Reserved by: ${staffName}\nPurpose: ${notes}`
+           : `Reserved by: ${staffName}`, 
+              
         startDateTime: buildReservationDateTime(
           reservation_date,
           start_time
