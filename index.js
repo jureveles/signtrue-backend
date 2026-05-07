@@ -313,37 +313,43 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
     // =====================================================
     // CREATE GOOGLE CALENDAR EVENT
     // =====================================================
-    
-    const calendarEvent = await createCalendarEvent({
-      summary: `${resourceName} Reservation`,
-      description:
-        notes ||
-        `Reservation created through SignTrue`,
-      startDateTime: buildReservationDateTime(
-        reservation_date,
-        start_time
-      ),
-      endDateTime: buildReservationDateTime(
-        reservation_date,
-        end_time
-      ),
-    });
-    
+
+    try {
+      const calendarEvent = await createCalendarEvent({
+        summary: `${resourceName} Reservation`,
+        description:
+          notes ||
+          `Reservation created through SignTrue`,
+        startDateTime: buildReservationDateTime(
+          reservation_date,
+          start_time
+        ),
+        endDateTime: buildReservationDateTime(
+          reservation_date,
+          end_time
+        ),
+      });
+
     // =====================================================
     // SAVE GOOGLE EVENT ID
     // =====================================================
     
-    await pool.query(
-      `
-      UPDATE signtrue.reservations
-      SET google_event_id = $1
-      WHERE id = $2
-      `,
-      [calendarEvent.id, reservation.id]
-    );
+      await pool.query(
+        `
+        UPDATE signtrue.reservations
+        SET google_event_id = $1
+        WHERE id = $2
+        `,
+        [calendarEvent.id, reservation.id]
+      );
+    
+      reservation.google_event_id = calendarEvent.id;
+    } catch (calendarErr) {
+      console.error("Google Calendar sync failed:", calendarErr);
+    }
     
     res.status(201).json(reservation);
-
+    
 
   } catch (err) {
     console.error("Create reservation error:", err);
