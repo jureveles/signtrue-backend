@@ -1,6 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+const { createCalendarEvent } = require('./google_calendar');
 
 const app = express();
 app.use(cors());
