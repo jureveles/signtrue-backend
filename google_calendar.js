@@ -1,7 +1,20 @@
 const { google } = require('googleapis');
 
 function getCalendarClient() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+
+  console.log(
+    "Google JSON exists:",
+    !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON
+  );
+
+  console.log(
+    "Calendar ID exists:",
+    !!process.env.GOOGLE_CALENDAR_ID
+  );
+
+  const credentials = JSON.parse(
+    process.env.GOOGLE_SERVICE_ACCOUNT_JSON
+  );
 
   const auth = new google.auth.GoogleAuth({
     credentials,
