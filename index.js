@@ -357,6 +357,63 @@ app.patch('/signtrue/reservations/:reservationId/status', checkSecretKey, async 
   }
 });
 
+// 12. UPDATE RESERVATION DETAILS
+app.patch('/signtrue/reservations/:reservationId', checkSecretKey, async (req, res) => {
+  const { reservationId } = req.params;
+  const {
+    resource_id,
+    user_id,
+    reservation_date,
+    start_time,
+    end_time,
+    notes
+  } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE signtrue.reservations
+      SET
+        resource_id = $1,
+        reservation_date = $2,
+        start_time = $3,
+        end_time = $4,
+        notes = $5
+      WHERE id = $6
+        AND user_id = $7
+        AND status IN ('pending', 'approved')
+      RETURNING *
+      `,
+      [
+        resource_id,
+        reservation_date,
+        start_time,
+        end_time,
+        notes || null,
+        reservationId,
+        user_id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "Reservation not found or not owned by user"
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Update reservation details error:", err);
+
+    if (err.constraint === 'no_overlapping_reservations') {
+      return res.status(409).json({ error: "Time slot already reserved" });
+    }
+
+    res.status(500).json({ error: "Could not update reservation" });
+  }
+});
+
+
 // ===========================================================================
 // SERVER START
 // ===========================================================================
