@@ -413,6 +413,37 @@ app.patch('/signtrue/reservations/:reservationId', checkSecretKey, async (req, r
   }
 });
 
+// 13. CANCEL / DELETE USER RESERVATION
+app.patch('/signtrue/reservations/:reservationId/cancel', checkSecretKey, async (req, res) => {
+  const { reservationId } = req.params;
+  const { user_id } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE signtrue.reservations
+      SET status = 'cancelled'
+      WHERE id = $1
+        AND user_id = $2
+        AND status IN ('pending', 'approved')
+      RETURNING *
+      `,
+      [reservationId, user_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "Reservation not found or not owned by user"
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Cancel reservation error:", err);
+    res.status(500).json({ error: "Could not cancel reservation" });
+  }
+});
+
 
 // ===========================================================================
 // SERVER START
