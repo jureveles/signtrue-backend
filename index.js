@@ -23,6 +23,10 @@ const checkSecretKey = (req, res, next) => {
   }
 };
 
+function buildReservationDateTime(date, time) {
+  return `${date}T${time}`;
+}
+
 // ===========================================================================
 // ROUTES
 // ===========================================================================
@@ -264,16 +268,83 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
 
   try {
     const result = await pool.query(
-      `
+  `
       INSERT INTO signtrue.reservations
-      (resource_id, user_id, reservation_date, start_time, end_time, status, notes)
+      (
+        resource_id,
+        user_id,
+        reservation_date,
+        start_time,
+        end_time,
+        status,
+        notes
+      )
       VALUES ($1, $2, $3, $4, $5, 'approved', $6)
       RETURNING *
       `,
-      [resource_id, user_id, reservation_date, start_time, end_time, notes || null]
+      [
+        resource_id,
+        user_id,
+        reservation_date,
+        start_time,
+        end_time,
+        notes || null
+      ]
     );
+    
+    const reservation = result.rows[0];
+    
+    // =====================================================
+    // FETCH RESOURCE NAME
+    // =====================================================
+    
+    const resourceResult = await pool.query(
+      `
+      SELECT name
+      FROM signtrue.resources
+      WHERE id = $1
+      `,
+      [resource_id]
+    );
+    
+    const resourceName =
+      resourceResult.rows[0]?.name || 'Reservation';
+    
+    // =====================================================
+    // CREATE GOOGLE CALENDAR EVENT
+    // =====================================================
+    
+    const calendarEvent = await createCalendarEvent({
+      summary: `${resourceName} Reservation`,
+      description:
+        notes ||
+        `Reservation created through SignTrue`,
+      startDateTime: buildReservationDateTime(
+        reservation_date,
+        start_time
+      ),
+      endDateTime: buildReservationDateTime(
+        reservation_date,
+        end_time
+      ),
+    });
+    
+    // =====================================================
+    // SAVE GOOGLE EVENT ID
+    // =====================================================
+    
+    await pool.query(
+      `
+      UPDATE signtrue.reservations
+      SET google_event_id = $1
+      WHERE id = $2
+      `,
+      [calendarEvent.id, reservation.id]
+    );
+    
+    res.status(201).json(reservation);
 
-    res.status(201).json(result.rows[0]);
+
   } catch (err) {
     console.error("Create reservation error:", err);
 
