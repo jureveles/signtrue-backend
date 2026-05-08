@@ -82,7 +82,21 @@ async function updateCalendarEvent({
   return response.data;
 }
 
+async function deleteCalendarEvent({ eventId }) {
+  if (!eventId) return null;
+
+  const calendar = getCalendarClient();
+
+  await calendar.events.delete({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    eventId,
+  });
+
+  return true;
+}
+
 module.exports = {
   createCalendarEvent,
   updateCalendarEvent,
+  deleteCalendarEvent,
 };
