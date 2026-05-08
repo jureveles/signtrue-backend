@@ -51,6 +51,38 @@ async function createCalendarEvent({
   return response.data;
 }
 
+async function updateCalendarEvent({
+  eventId,
+  summary,
+  description,
+  startDateTime,
+  endDateTime,
+}) {
+  if (!eventId) return null;
+
+  const calendar = getCalendarClient();
+
+  const response = await calendar.events.update({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    eventId,
+    requestBody: {
+      summary,
+      description,
+      start: {
+        dateTime: startDateTime,
+        timeZone: 'America/New_York',
+      },
+      end: {
+        dateTime: endDateTime,
+        timeZone: 'America/New_York',
+      },
+    },
+  });
+
+  return response.data;
+}
+
 module.exports = {
   createCalendarEvent,
+  updateCalendarEvent,
 };
