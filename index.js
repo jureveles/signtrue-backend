@@ -498,6 +498,9 @@ app.patch('/signtrue/reservations/:reservationId', checkSecretKey, async (req, r
     }
     
     const reservation = result.rows[0];
+
+    console.log("Updated reservation ID:", reservation.id);
+    console.log("Google event ID on update:", reservation.google_event_id);
     
     try {
     
@@ -539,6 +542,8 @@ app.patch('/signtrue/reservations/:reservationId', checkSecretKey, async (req, r
       // =====================================================
     
       if (reservation.google_event_id) {
+
+        console.log("Attempting Google Calendar update...");
     
         await updateCalendarEvent({
           eventId: reservation.google_event_id,
