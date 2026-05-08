@@ -635,6 +635,89 @@ app.patch('/signtrue/reservations/:reservationId/cancel', checkSecretKey, async 
   }
 });
 
+// 14. STAFF REGISTRATION ROUTE 
+app.post('/signtrue/register-staff', async (req, res) => {
+  try {
+    const {
+      first_name,
+      last_name,
+      chosen_name,
+      email,
+      username,
+      password,
+      school_id
+    } = req.body;
+
+    if (!first_name || !last_name || !email || !username || !password || !school_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required registration fields.'
+      });
+    }
+
+    const existingUser = await pool.query(
+      `
+      SELECT id
+      FROM signtrue.users
+      WHERE LOWER(email) = LOWER($1)
+         OR LOWER(username) = LOWER($2)
+      LIMIT 1
+      `,
+      [email, username]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email or username already exists.'
+      });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const result = await pool.query(
+      `
+      INSERT INTO signtrue.users (
+        first_name,
+        last_name,
+        chosen_name,
+        email,
+        username,
+        password_hash,
+        role,
+        school_id,
+        is_active,
+        approval_status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 'staff', $7, false, 'pending')
+      RETURNING id, first_name, last_name, email, username, role, school_id, is_active, approval_status
+      `,
+      [
+        first_name,
+        last_name,
+        chosen_name || null,
+        email,
+        username,
+        passwordHash,
+        school_id
+      ]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Registration submitted. Please wait for admin approval.',
+      user: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error('Staff registration error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during staff registration.'
+    });
+  }
+});
 
 // ===========================================================================
 // SERVER START
