@@ -496,8 +496,82 @@ app.patch('/signtrue/reservations/:reservationId', checkSecretKey, async (req, r
         error: "Reservation not found or not owned by user"
       });
     }
-
-    res.json(result.rows[0]);
+    
+    const reservation = result.rows[0];
+    
+    try {
+    
+      // =====================================================
+      // FETCH RESOURCE NAME
+      // =====================================================
+    
+      const resourceResult = await pool.query(
+        `
+        SELECT name
+        FROM signtrue.resources
+        WHERE id = $1
+        `,
+        [resource_id]
+      );
+    
+      const resourceName =
+        resourceResult.rows[0]?.name || 'Reservation';
+    
+      // =====================================================
+      // FETCH STAFF NAME
+      // =====================================================
+    
+      const userResult = await pool.query(
+        `
+        SELECT first_name, last_name
+        FROM signtrue.users
+        WHERE id = $1
+        `,
+        [user_id]
+      );
+    
+      const staffName =
+        `${userResult.rows[0]?.first_name || ''} ${userResult.rows[0]?.last_name || ''}`.trim()
+        || 'Staff member';
+    
+      // =====================================================
+      // UPDATE GOOGLE CALENDAR EVENT
+      // =====================================================
+    
+      if (reservation.google_event_id) {
+    
+        await updateCalendarEvent({
+          eventId: reservation.google_event_id,
+    
+          summary: `${resourceName} - ${staffName}`,
+    
+          description:
+            notes
+              ? `Reserved by: ${staffName}\nPurpose: ${notes}`
+              : `Reserved by: ${staffName}`,
+    
+          startDateTime: buildReservationDateTime(
+            reservation_date,
+            start_time
+          ),
+    
+          endDateTime: buildReservationDateTime(
+            reservation_date,
+            end_time
+          ),
+        });
+      }
+    
+    } catch (calendarErr) {
+    
+      console.error(
+        "Google Calendar update failed:",
+        calendarErr
+      );
+    }
+    
+    res.json(reservation);
+    
   } catch (err) {
     console.error("Update reservation details error:", err);
 
