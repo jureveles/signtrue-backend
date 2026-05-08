@@ -4,6 +4,7 @@ const cors = require('cors');
 const {
   createCalendarEvent,
   updateCalendarEvent,
+  deleteCalendarEvent,
 } = require('./google_calendar');
 
 const app = express();
@@ -611,8 +612,23 @@ app.patch('/signtrue/reservations/:reservationId/cancel', checkSecretKey, async 
         error: "Reservation not found or not owned by user"
       });
     }
+    
+    const reservation = result.rows[0];
+    
+    try {
+      if (reservation.google_event_id) {
+        console.log("Deleting Google Calendar event:", reservation.google_event_id);
+    
+        await deleteCalendarEvent({
+          eventId: reservation.google_event_id,
+        });
+      }
+    } catch (calendarErr) {
+      console.error("Google Calendar delete failed:", calendarErr);
+    }
+    
+    res.json(reservation);
 
-    res.json(result.rows[0]);
   } catch (err) {
     console.error("Cancel reservation error:", err);
     res.status(500).json({ error: "Could not cancel reservation" });
