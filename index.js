@@ -738,6 +738,105 @@ app.post('/signtrue/register-staff', async (req, res) => {
   }
 });
 
+// 15. GET USERS FOR ADMIN APPROVAL
+app.get('/signtrue/admin/users/:schoolId', checkSecretKey, async (req, res) => {
+  const { schoolId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        local_id,
+        first_name,
+        last_name,
+        chosen_name,
+        email,
+        username,
+        role,
+        school_id,
+        is_active,
+        approval_status,
+        created_at
+      FROM signtrue.users
+      WHERE school_id = $1
+        AND role = 'staff'
+      ORDER BY 
+        CASE 
+          WHEN approval_status = 'pending' THEN 1
+          WHEN approval_status = 'approved' THEN 2
+          WHEN approval_status = 'denied' THEN 3
+          ELSE 4
+        END,
+        created_at DESC
+      `,
+      [schoolId]
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Admin fetch users error:', err);
+    return res.status(500).json({
+      error: 'Error fetching users'
+    });
+  }
+});
+
+
+// 16. UPDATE STAFF APPROVAL STATUS
+app.patch('/signtrue/admin/users/:userId/approval', checkSecretKey, async (req, res) => {
+  const { userId } = req.params;
+  const { approval_status } = req.body;
+
+  const allowedStatuses = ['pending', 'approved', 'denied'];
+
+  if (!allowedStatuses.includes(approval_status)) {
+    return res.status(400).json({
+      error: 'Invalid approval status'
+    });
+  }
+
+  const isActive = approval_status === 'approved';
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE signtrue.users
+      SET
+        approval_status = $1,
+        is_active = $2
+      WHERE id = $3
+        AND role = 'staff'
+      RETURNING
+        id,
+        local_id,
+        first_name,
+        last_name,
+        email,
+        username,
+        role,
+        school_id,
+        is_active,
+        approval_status
+      `,
+      [approval_status, isActive, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Staff user not found'
+      });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Admin update approval error:', err);
+    return res.status(500).json({
+      error: 'Error updating user approval status'
+    });
+  }
+});
+
 // ===========================================================================
 // SERVER START
 // ===========================================================================
