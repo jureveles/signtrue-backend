@@ -645,10 +645,19 @@ app.post('/signtrue/register-staff', async (req, res) => {
       email,
       username,
       password,
-      school_id
+      school_id,
+      local_id
     } = req.body;
 
-    if (!first_name || !last_name || !email || !username || !password || !school_id) {
+    if (
+      !first_name ||
+      !last_name ||
+      !email ||
+      !username ||
+      !password ||
+      !school_id ||
+      !local_id
+    ){
       return res.status(400).json({
         success: false,
         message: 'Missing required registration fields.'
@@ -675,10 +684,10 @@ app.post('/signtrue/register-staff', async (req, res) => {
 
     const bcrypt = require('bcryptjs');
     const passwordHash = await bcrypt.hash(password, 10);
-
     const result = await pool.query(
       `
       INSERT INTO signtrue.users (
+        local_id,
         first_name,
         last_name,
         chosen_name,
@@ -690,10 +699,11 @@ app.post('/signtrue/register-staff', async (req, res) => {
         is_active,
         approval_status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, 'staff', $7, false, 'pending')
-      RETURNING id, first_name, last_name, email, username, role, school_id, is_active, approval_status
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'staff', $8, false, 'pending')
+      RETURNING id, local_id, first_name, last_name, email, username, role, school_id, is_active, approval_status
       `,
       [
+        local_id,
         first_name,
         last_name,
         chosen_name || null,
