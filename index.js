@@ -62,13 +62,7 @@ app.post('/signtrue/login', checkSecretKey, async (req, res) => {
     if (!passwordMatches) {
       return res.status(401).json({ error: "Invalid ID or password" });
     }
-
-    if (user.is_active !== true || user.approval_status !== 'approved') {
-      return res.status(403).json({
-        error: "Your account is pending admin approval."
-      });
-    }
-
+    
     delete user.password_hash;
     return res.json(user);
 
