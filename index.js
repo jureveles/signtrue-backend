@@ -45,21 +45,36 @@ app.post('/signtrue/login', checkSecretKey, async (req, res) => {
       FROM signtrue.users u
       LEFT JOIN signtrue.schools sch ON u.school_id = sch.id
       WHERE (u.local_id = $1 OR LOWER(u.username) = LOWER($1))
-        AND u.password_hash = $2
+      LIMIT 1
     `;
 
-    const result = await pool.query(query, [local_id, password]);
+    const result = await pool.query(query, [local_id]);
 
-    if (result.rows.length > 0) {
-      const user = result.rows[0];
-      delete user.password_hash;
-      res.json(user);
-    } else {
-      res.status(401).json({ error: "Invalid ID or password" });
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "Invalid ID or password" });
     }
+
+    const user = result.rows[0];
+
+    const bcrypt = require('bcryptjs');
+    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+
+    if (!passwordMatches) {
+      return res.status(401).json({ error: "Invalid ID or password" });
+    }
+
+    if (user.is_active !== true || user.approval_status !== 'approved') {
+      return res.status(403).json({
+        error: "Your account is pending admin approval."
+      });
+    }
+
+    delete user.password_hash;
+    return res.json(user);
+
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ error: "Database error during login" });
+    return res.status(500).json({ error: "Database error during login" });
   }
 });
 
