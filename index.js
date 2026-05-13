@@ -901,6 +901,87 @@ app.post('/signtrue/forgot-password', async (req, res) => {
   }
 });
 
+// ======================================================
+// RESET PASSWORD
+// ======================================================
+app.post('/signtrue/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  try {
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, code, and new password are required.',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters.',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = code.trim();
+
+    const resetResult = await pool.query(
+      `
+      SELECT id, user_id
+      FROM signtrue.password_reset_codes
+      WHERE LOWER(email) = $1
+        AND code = $2
+        AND used = false
+        AND expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [normalizedEmail, normalizedCode]
+    );
+
+    if (resetResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset code.',
+      });
+    }
+
+    const resetRecord = resetResult.rows[0];
+
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await pool.query(
+      `
+      UPDATE signtrue.users
+      SET password_hash = $1
+      WHERE id = $2
+      `,
+      [hashedPassword, resetRecord.user_id]
+    );
+
+    await pool.query(
+      `
+      UPDATE signtrue.password_reset_codes
+      SET used = true
+      WHERE id = $1
+      `,
+      [resetRecord.id]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Password reset successfully.',
+    });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while resetting password.',
+    });
+  }
+});
+
 // ===========================================================================
 // SERVER START
 // ===========================================================================
