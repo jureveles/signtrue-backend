@@ -11,10 +11,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const nodemailer = require('nodemailer');
+
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
+});
+
+// =====================================================
+// EMAIL TRANSPORTER
+// =====================================================
+
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT || 465),
+  secure: true,
+
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 // Middleware: Security Gatekeeper
