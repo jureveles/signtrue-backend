@@ -43,6 +43,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Middleware: Security Gatekeeper
+const checkSecretKey = (req, res, next) => {
+  const userKey = req.headers['x-api-key'];
+
+  if (userKey === process.env.MY_SECRET_KEY) {
+    next();
+  } else {
+    res.status(403).json({
+      error: "Unauthorized access blocked."
+    });
+  }
+};
+
+function buildReservationDateTime(date, time) {
+  return `${date}T${time}`;
+}
+
 // ===========================================================================
 // ROUTES
 // ===========================================================================
