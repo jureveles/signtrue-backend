@@ -24,29 +24,24 @@ const pool = new Pool({
 // =====================================================
 
 const transporter = nodemailer.createTransport({
+
   host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT || 465),
+
+  port: Number(
+    process.env.EMAIL_PORT || 465
+  ),
+
   secure: true,
+
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
-
-// Middleware: Security Gatekeeper
-const checkSecretKey = (req, res, next) => {
-  const userKey = req.headers['x-api-key'];
-  if (userKey === process.env.MY_SECRET_KEY) {
-    next();
-  } else {
-      res.status(403).json({ error: "Unauthorized access blocked." });
-  }
-};
-
-function buildReservationDateTime(date, time) {
-  return `${date}T${time}`;
-}
 
 // ===========================================================================
 // ROUTES
