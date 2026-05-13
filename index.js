@@ -43,6 +43,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+console.log("SMTP DEBUG BLOCK LOADED");
+console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
+console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
+console.log("EMAIL_USER EXISTS:", !!process.env.EMAIL_USER);
+
 transporter.verify((error, success) => {
   if (error) {
     console.error("SMTP VERIFY FAILED:", error);
