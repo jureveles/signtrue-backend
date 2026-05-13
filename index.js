@@ -837,6 +837,70 @@ app.patch('/signtrue/admin/users/:userId/approval', checkSecretKey, async (req, 
   }
 });
 
+//=========================
+// Forgot Password route
+//=========================
+app.post('/signtrue/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Always return the same public message for security.
+    const publicResponse = {
+      success: true,
+      message: 'If this email exists, a reset code has been sent.',
+    };
+
+    if (!email) {
+      return res.json(publicResponse);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const userResult = await pool.query(
+      `
+      SELECT id, email, first_name
+      FROM signtrue.users
+      WHERE LOWER(email) = $1
+        AND role = 'staff'
+        AND is_active = true
+      LIMIT 1
+      `,
+      [normalizedEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.json(publicResponse);
+    }
+
+    const user = userResult.rows[0];
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await pool.query(
+      `
+      INSERT INTO signtrue.password_reset_codes
+        (user_id, email, code, expires_at, used)
+      VALUES ($1, $2, $3, $4, false)
+      `,
+      [user.id, normalizedEmail, code, expiresAt]
+    );
+
+    // TEMPORARY TEST ONLY:
+    // For now, print the code in Render logs so we can test before email setup.
+    console.log(`Password reset code for ${normalizedEmail}: ${code}`);
+
+    return res.json(publicResponse);
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while requesting password reset.',
+    });
+  }
+});
+
 // ===========================================================================
 // SERVER START
 // ===========================================================================
