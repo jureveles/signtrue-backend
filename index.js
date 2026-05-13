@@ -906,7 +906,55 @@ app.post('/signtrue/forgot-password', async (req, res) => {
 
     // TEMPORARY TEST ONLY:
     // For now, print the code in Render logs so we can test before email setup.
-    console.log(`Password reset code for ${normalizedEmail}: ${code}`);
+    await transporter.sendMail({
+  
+    from: `"SignTrue Support" <${process.env.EMAIL_USER}>`,
+    to: normalizedEmail,
+  
+    subject: 'Your Scred Hear RVCA SignTrue Password Reset Code',
+  
+    html: `
+      <div style="
+        font-family: Arial, sans-serif;
+        padding: 24px;
+        background-color: #f4f5f7;
+        color: #222;
+      ">
+  
+        <h2 style="color:#8B4513;">
+          SignTrue Password Recovery
+        </h2>
+  
+        <p>
+          Hello ${user.first_name || 'User'},
+        </p>
+  
+        <p>
+          Your password reset code is:
+        </p>
+  
+        <div style="
+          font-size: 34px;
+          font-weight: bold;
+          letter-spacing: 5px;
+          color: #CD7F32;
+          margin: 24px 0;
+        ">
+          ${code}
+        </div>
+  
+        <p>
+          This code expires in 10 minutes.
+        </p>
+  
+        <p>
+          If you did not request this password reset,
+          you may safely ignore this email.
+        </p>
+  
+      </div>
+    `,
+  });
 
     return res.json(publicResponse);
   } catch (err) {
