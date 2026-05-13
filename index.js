@@ -43,6 +43,14 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("SMTP VERIFY FAILED:", error);
+  } else {
+    console.log("SMTP SERVER IS READY:", success);
+  }
+});
+
 // Middleware: Security Gatekeeper
 const checkSecretKey = (req, res, next) => {
   const userKey = req.headers['x-api-key'];
