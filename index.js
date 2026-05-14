@@ -22,14 +22,25 @@ const pool = new Pool({
 // =====================================================
 // EMAIL TRANSPORTER
 // =====================================================
+
+const smtpHost = process.env.EMAIL_HOST || process.env.MAIL_DEFAULT_SERVER;
+const smtpPort = Number(process.env.EMAIL_PORT || process.env.MAIL_PORT || 587);
+const smtpUser = process.env.EMAIL_USER || process.env.MAIL_USERNAME;
+const smtpPass = process.env.EMAIL_PASS || process.env.MAIL_PASSWORD;
+
+console.log("SMTP HOST FINAL:", smtpHost);
+console.log("SMTP PORT FINAL:", smtpPort);
+console.log("SMTP USER FINAL EXISTS:", !!smtpUser);
+console.log("SMTP PASS FINAL EXISTS:", !!smtpPass);
+
 const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_DEFAULT_SERVER,
-  port: Number(process.env.MAIL_PORT || 587),
-  secure: false,
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpPort === 465,
 
   auth: {
-    user: process.env.MAIL_USERNAME,
-    pass: process.env.MAIL_PASSWORD,
+    user: smtpUser,
+    pass: smtpPass,
   },
 
   connectionTimeout: 10000,
@@ -37,18 +48,6 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 10000,
 });
 
-console.log("SMTP DEBUG BLOCK LOADED");
-console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
-console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
-console.log("EMAIL_USER EXISTS:", !!process.env.EMAIL_USER);
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("SMTP VERIFY FAILED:", error);
-  } else {
-    console.log("SMTP SERVER IS READY:", success);
-  }
-});
 
 // Middleware: Security Gatekeeper
 const checkSecretKey = (req, res, next) => {
@@ -936,7 +935,8 @@ app.post('/signtrue/forgot-password', async (req, res) => {
     console.log("EMAIL_PASS exists:", !!process.env.EMAIL_PASS);
   
     await transporter.sendMail({
-      from: `"SignTrue Support" <${process.env.MAIL_USER}>`,
+      from: `"SignTrue Support" <${smtpUser}>`,
+     
       to: normalizedEmail,
       subject: 'Your Sacred Heart RVA SignTrue Password Reset Code',
       html: `
