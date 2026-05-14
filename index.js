@@ -936,7 +936,7 @@ app.post('/signtrue/forgot-password', async (req, res) => {
     console.log("EMAIL_PASS exists:", !!process.env.EMAIL_PASS);
   
     await transporter.sendMail({
-      from: `"SignTrue Support" <${process.env.EMAIL_USER}>`,
+      from: `"SignTrue Support" <${process.env.MAIL_USER}>`,
       to: normalizedEmail,
       subject: 'Your Sacred Heart RVA SignTrue Password Reset Code',
       html: `
