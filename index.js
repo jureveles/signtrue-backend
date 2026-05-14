@@ -925,14 +925,15 @@ app.post('/signtrue/forgot-password', async (req, res) => {
   console.log("Generated reset code:", code);
     
   try {
-    console.log("About to send password reset email to:", normalizedEmail);
-    console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
-    console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
-    console.log("EMAIL_USER exists:", !!process.env.EMAIL_USER);
-    console.log("EMAIL_PASS exists:", !!process.env.EMAIL_PASS);
-  
-    await transporter.sendMail({
-      from: `"SignTrue Support" <${smtpUser}>`,
+    
+    console.log("SMTP HOST:", smtpHost);
+    console.log("SMTP PORT:", smtpPort);
+    console.log("SMTP USER exists:", !!smtpUser);
+    console.log("SMTP PASS exists:", !!smtpPass);
+    console.log("SMTP FROM:", smtpFrom);
+    
+    await transporter.sendMail({     
+      from: `"SignTrue Support" <${smtpFrom}>`,
      
       to: normalizedEmail,
       subject: 'Your Sacred Heart RVA SignTrue Password Reset Code',
