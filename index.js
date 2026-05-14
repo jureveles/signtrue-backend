@@ -25,8 +25,8 @@ const pool = new Pool({
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT || 587),
-  secure: false,
+  port: Number(process.env.EMAIL_PORT || 465),
+  secure: true,
 
   connectionTimeout: 10000,
   greetingTimeout: 10000,
