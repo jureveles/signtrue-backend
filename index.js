@@ -22,20 +22,19 @@ const pool = new Pool({
 // =====================================================
 // EMAIL TRANSPORTER
 // =====================================================
-
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT || 465),
-  secure: true,
+  host: process.env.MAIL_DEFAULT_SERVER,
+  port: Number(process.env.MAIL_PORT || 587),
+  secure: false,
+
+  auth: {
+    user: process.env.MAIL_USERNAME,
+    pass: process.env.MAIL_PASSWORD,
+  },
 
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 10000,
-
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
 });
 
 console.log("SMTP DEBUG BLOCK LOADED");
