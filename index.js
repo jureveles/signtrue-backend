@@ -23,29 +23,26 @@ const pool = new Pool({
 // EMAIL TRANSPORTER
 // =====================================================
 
-const smtpHost = process.env.EMAIL_HOST || process.env.MAIL_DEFAULT_SERVER;
-const smtpPort = Number(process.env.EMAIL_PORT || process.env.MAIL_PORT || 587);
-const smtpUser = process.env.EMAIL_USER || process.env.MAIL_USERNAME;
-const smtpPass = process.env.EMAIL_PASS || process.env.MAIL_PASSWORD;
-
-console.log("SMTP HOST FINAL:", smtpHost);
-console.log("SMTP PORT FINAL:", smtpPort);
-console.log("SMTP USER FINAL EXISTS:", !!smtpUser);
-console.log("SMTP PASS FINAL EXISTS:", !!smtpPass);
+const smtpHost = process.env.MAIL_DEFAULT_SERVER || 'mail.privateemail.com';
+const smtpPort = Number(process.env.MAIL_PORT || 587);
+const smtpUser = process.env.MAIL_USERNAME;
+const smtpPass = process.env.MAIL_PASSWORD;
+const smtpFrom = process.env.MAIL_DEFAULT_SENDER || smtpUser;
 
 const transporter = nodemailer.createTransport({
   host: smtpHost,
   port: smtpPort,
-  secure: smtpPort === 465,
+  secure: false,
+  requireTLS: true,
 
   auth: {
     user: smtpUser,
     pass: smtpPass,
   },
 
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
+  connectionTimeout: 30000,
+  greetingTimeout: 30000,
+  socketTimeout: 30000,
 });
 
 
