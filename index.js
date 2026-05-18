@@ -69,38 +69,59 @@ function buildReservationDateTime(date, time) {
 
 // 1. UNIFIED LOGIN
 app.post('/signtrue/login', checkSecretKey, async (req, res) => {
-  const { local_id, password } = req.body;
+  const { local_id, password, school_name } = req.body;
+
+  if (!local_id || !password || !school_name) {
+    return res.status(400).json({
+      error: "Missing login information"
+    });
+  }
 
   try {
     const query = `
       SELECT u.*, sch.name AS school_name
       FROM signtrue.users u
-      LEFT JOIN signtrue.schools sch ON u.school_id = sch.id
-      WHERE (u.local_id = $1 OR LOWER(u.username) = LOWER($1))
+      LEFT JOIN signtrue.schools sch 
+        ON u.school_id = sch.id
+      WHERE 
+        (u.local_id::text = $1 OR LOWER(u.username) = LOWER($1))
+        AND LOWER(sch.name) = LOWER($2)
       LIMIT 1
     `;
 
-    const result = await pool.query(query, [local_id]);
+    const result = await pool.query(query, [
+      local_id,
+      school_name,
+    ]);
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid ID or password" });
+      return res.status(401).json({
+        error: "Invalid ID, password, or institution"
+      });
     }
 
     const user = result.rows[0];
 
     const bcrypt = require('bcryptjs');
-    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user.password_hash
+    );
 
     if (!passwordMatches) {
-      return res.status(401).json({ error: "Invalid ID or password" });
+      return res.status(401).json({
+        error: "Invalid ID, password, or institution"
+      });
     }
-    
+
     delete user.password_hash;
     return res.json(user);
 
   } catch (err) {
     console.error("Login error:", err);
-    return res.status(500).json({ error: "Database error during login" });
+    return res.status(500).json({
+      error: "Database error during login"
+    });
   }
 });
 
