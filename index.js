@@ -386,31 +386,53 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
     );
     
     const staffName = `${userResult.rows[0]?.first_name || ''} ${userResult.rows[0]?.last_name || ''}`.trim() || 'Staff member';
-        
+
+  // =====================================================
+  // GET SCHOOL GOOGLE CALENDAR ID
+  // =====================================================
+  
+  const schoolCalendarResult = await pool.query(
+    `
+    SELECT s.google_calendar_id
+    FROM signtrue.users u
+    JOIN signtrue.schools s
+      ON s.id = u.school_id
+    WHERE u.id = $1
+    `,
+    [userId]
+  );
+  
+  const schoolCalendarId =
+    schoolCalendarResult.rows[0]?.google_calendar_id;
+  
+  // =====================================================
+  // CREATE GOOGLE CALENDAR EVENT
+  // =====================================================
+  
+  try {
+    const calendarEvent = await createCalendarEvent({
+  
+      summary: `${resourceName} - ${staffName}`,
+  
+      description:
+        notes
+          ? `Reserved by: ${staffName}\nPurpose: ${notes}`
+          : `Reserved by: ${staffName}`,
+  
+      startDateTime: buildReservationDateTime(
+        reservation_date,
+        start_time
+      ),
+  
+      endDateTime: buildReservationDateTime(
+        reservation_date,
+        end_time
+      ),
+  
+      calendarId: schoolCalendarId,
+  
+    });
     
-    // =====================================================
-    // CREATE GOOGLE CALENDAR EVENT
-    // =====================================================
-
-    try {
-      const calendarEvent = await createCalendarEvent({
-
-       summary: `${resourceName} - ${staffName}`,
-       description:
-         notes
-           ? `Reserved by: ${staffName}\nPurpose: ${notes}`
-           : `Reserved by: ${staffName}`, 
-              
-        startDateTime: buildReservationDateTime(
-          reservation_date,
-          start_time
-        ),
-        endDateTime: buildReservationDateTime(
-          reservation_date,
-          end_time
-        ),
-      });
-
     // =====================================================
     // SAVE GOOGLE EVENT ID
     // =====================================================
