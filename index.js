@@ -399,7 +399,7 @@ app.post('/signtrue/reservations/create', checkSecretKey, async (req, res) => {
       ON s.id = u.school_id
     WHERE u.id = $1
     `,
-    [userId]
+    [user_id]
   );
   
   const schoolCalendarId =
