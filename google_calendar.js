@@ -8,7 +8,7 @@ function getCalendarClient() {
   );
 
   console.log(
-    "Calendar ID exists:",
+    "Default Calendar ID exists:",
     !!process.env.GOOGLE_CALENDAR_ID
   );
 
@@ -24,16 +24,22 @@ function getCalendarClient() {
   return google.calendar({ version: 'v3', auth });
 }
 
+// Helper: use school calendar first, otherwise fallback to Render env calendar
+function resolveCalendarId(calendarId) {
+  return calendarId || process.env.GOOGLE_CALENDAR_ID;
+}
+
 async function createCalendarEvent({
   summary,
   description,
   startDateTime,
   endDateTime,
+  calendarId,
 }) {
   const calendar = getCalendarClient();
 
   const response = await calendar.events.insert({
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    calendarId: resolveCalendarId(calendarId),
     requestBody: {
       summary,
       description,
@@ -57,13 +63,14 @@ async function updateCalendarEvent({
   description,
   startDateTime,
   endDateTime,
+  calendarId,
 }) {
   if (!eventId) return null;
 
   const calendar = getCalendarClient();
 
   const response = await calendar.events.update({
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    calendarId: resolveCalendarId(calendarId),
     eventId,
     requestBody: {
       summary,
@@ -82,13 +89,16 @@ async function updateCalendarEvent({
   return response.data;
 }
 
-async function deleteCalendarEvent({ eventId }) {
+async function deleteCalendarEvent({
+  eventId,
+  calendarId,
+}) {
   if (!eventId) return null;
 
   const calendar = getCalendarClient();
 
   await calendar.events.delete({
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    calendarId: resolveCalendarId(calendarId),
     eventId,
   });
 
