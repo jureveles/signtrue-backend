@@ -132,8 +132,7 @@ app.get('/signtrue/activities/:day', checkSecretKey, async (req, res) => {
   try {
     const result = await pool.query(
       `
-      SELECT * 
-      FROM signtrue.activities 
+      SELECT * FROM signtrue.activities 
       WHERE day_of_week = $1 
       ORDER BY start_time ASC
       `,
@@ -238,14 +237,16 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   }
 });
 
-// 6. SCHOOLS LIST
+// 6. SCHOOLS LIST (UPDATED STRUCTURAL RESPONSE)
 app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
   try {
+    // Modified to extract both the row id and name mapping
     const result = await pool.query(
-      `SELECT name FROM signtrue.schools ORDER BY name ASC`
+      `SELECT id, name FROM signtrue.schools ORDER BY name ASC`
     );
 
-    res.json(result.rows.map(row => row.name));
+    // Directly respond with array of structured data maps: [{id: 1, name: "School"}, ...]
+    res.json(result.rows);
   } catch (err) {
     console.error("Fetch schools error:", err);
     res.status(500).json({ error: "Error fetching schools" });
