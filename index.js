@@ -150,6 +150,11 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
       [date]
     );
 
+    // DEBUG LOG: Print the exact first row returned by Postgres
+    if (result.rows.length > 0) {
+      console.log("DB RAW ROW SAMPLE:", result.rows[0]);
+    }
+    
     res.json(result.rows);
   } catch (err) {
     console.error("Fetch activities by date error:", err);
