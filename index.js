@@ -125,23 +125,23 @@ app.post('/signtrue/login', checkSecretKey, async (req, res) => {
   }
 });
 
-// 2. ACTIVITIES BY DAY
-app.get('/signtrue/activities/:day', checkSecretKey, async (req, res) => {
-  const { day } = req.params;
+// 2. ACTIVITIES BY DATE
+app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
+  const { date } = req.params;
 
   try {
     const result = await pool.query(
       `
       SELECT * FROM signtrue.activities 
-      WHERE day_of_week = $1 
+      WHERE activity_date = $1 
       ORDER BY start_time ASC
       `,
-      [day]
+      [date]
     );
 
     res.json(result.rows);
   } catch (err) {
-    console.error("Fetch activities error:", err);
+    console.error("Fetch activities by date error:", err);
     res.status(500).json({ error: "Error fetching activities" });
   }
 });
