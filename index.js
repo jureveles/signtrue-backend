@@ -132,7 +132,18 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
   try {
     const result = await pool.query(
       `
-      SELECT * FROM signtrue.activities 
+      SELECT 
+        id,
+        title,
+        instructor,
+        start_time,
+        end_time,
+        day_of_week,
+        activity_date,
+        location,
+        max_capacity,
+        is_active
+      FROM signtrue.activities 
       WHERE activity_date = $1 
       ORDER BY start_time ASC
       `,
