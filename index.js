@@ -180,10 +180,10 @@ app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
       INSERT INTO signtrue.activities 
       (title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-      RETURNING *
+      RETURNING *;
     `;
 
-    const result = await pool.query(query, [
+    const values = [
       title,
       instructor,
       start_time,
@@ -191,8 +191,10 @@ app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
       day_of_week,
       activity_date,
       location,
-      max_capacity
-    ]);
+      max_capacity !== undefined && max_capacity !== null ? parseInt(max_capacity, 10) : 20
+    ];
+
+    const result = await pool.query(query, values);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
