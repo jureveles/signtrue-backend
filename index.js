@@ -162,7 +162,7 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
   }
 });
 
-// 3. CREATE NEW ACTIVITY
+// 3. CREATE NEW ACTIVITY HERE
 app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
   const {
     title,
