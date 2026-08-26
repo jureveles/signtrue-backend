@@ -229,14 +229,20 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
 
   try {
+    // Check if the student is already registered for ANY activity on this date
+    const existingCheck = await pool.query(
+      `SELECT id FROM signtrue.attendance WHERE student_id = $1 AND activity_date = $2`,
+      [student_id, activity_date]
+    );
+
+    if (existingCheck.rows.length > 0) {
+      return res.status(409).json({ error: "Already registered for a class on this date" });
+    }
+
     const query = `
       INSERT INTO signtrue.attendance 
       (student_id, activity_id, teacher_id, activity_date, status)
       VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (student_id, activity_date) 
-      DO UPDATE SET 
-        status = EXCLUDED.status, 
-        teacher_id = EXCLUDED.teacher_id
       RETURNING *
     `;
 
@@ -245,7 +251,7 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
       activity_id,
       teacher_id,
       activity_date,
-      status
+      status || 'Pending'
     ]);
 
     res.status(201).json(result.rows[0]);
@@ -254,6 +260,31 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
     res.status(500).json({ error: "Attendance failed" });
   }
 });
+
+
+// 5B. GET STUDENT REGISTRATIONS BY DATE
+app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, res) => {
+  const { studentId } = req.params;
+  const { date } = req.query;
+
+  try {
+    const query = `
+      SELECT activity_id 
+      FROM signtrue.attendance 
+      WHERE student_id = $1 
+        AND activity_date = $2
+    `;
+
+    const result = await pool.query(query, [studentId, date]);
+
+    // Returns array of objects formatted as: [{ activity_id: 12 }, ...]
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fetch student registrations error:", err);
+    res.status(500).json({ error: "Error fetching student registrations" });
+  }
+});
+
 
 // 6. SCHOOLS LIST (UPDATED STRUCTURAL RESPONSE)
 app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
