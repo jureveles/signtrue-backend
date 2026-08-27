@@ -217,13 +217,14 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
         a.id,
         a.student_id,
         a.status,
+        COALESCE(u.first_name, '') AS first_name,
+        COALESCE(u.last_name, '') AS last_name,
+        COALESCE(u.local_id, a.student_id) AS local_id,
         COALESCE(
           NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''),
           u.chosen_name,
-          'Student ' || a.student_id
-        ) AS student_name,
-        COALESCE(u.first_name, '') AS first_name,
-        COALESCE(u.last_name, '') AS last_name
+          'Student'
+        ) || ' (ID: ' || COALESCE(u.local_id, a.student_id) || ')' AS student_name
       FROM signtrue.attendance a
       LEFT JOIN signtrue.users u ON a.student_id = u.local_id
       WHERE a.activity_id = $1
@@ -240,7 +241,6 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
     res.status(500).json({ error: "Error fetching roster" });
   }
 });
-
 
 // 5. RECORD ATTENDANCE
 app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
