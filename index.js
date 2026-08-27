@@ -213,10 +213,23 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
 
   try {
     const query = `
-      SELECT a.status, u.first_name || ' ' || u.last_name AS student_name
+      SELECT 
+        a.id,
+        a.student_id,
+        a.status,
+        COALESCE(
+          NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''),
+          u.chosen_name,
+          'Student ' || a.student_id
+        ) AS student_name,
+        COALESCE(u.first_name, '') AS first_name,
+        COALESCE(u.last_name, '') AS last_name
       FROM signtrue.attendance a
-      JOIN signtrue.users u ON a.student_id = u.local_id
+      LEFT JOIN signtrue.users u ON a.student_id = u.local_id
       WHERE a.activity_id = $1
+      ORDER BY 
+        COALESCE(u.last_name, '') ASC,
+        COALESCE(u.first_name, '') ASC
     `;
 
     const result = await pool.query(query, [activityId]);
@@ -227,6 +240,7 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
     res.status(500).json({ error: "Error fetching roster" });
   }
 });
+
 
 // 5. RECORD ATTENDANCE
 app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
