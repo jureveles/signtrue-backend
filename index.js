@@ -130,29 +130,33 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
   const { date } = req.params;
 
   try {
-    const result = await pool.query(
-      `
+    const query = `
       SELECT 
-        id,
-        title,
-        instructor,
-        start_time,
-        end_time,
-        day_of_week,
-        activity_date,
-        location,
-        max_capacity,
-        is_active
-      FROM signtrue.activities 
-      WHERE activity_date = $1 
-      ORDER BY start_time ASC
-      `,
-      [date]
-    );
+        a.id,
+        a.title,
+        a.instructor,
+        a.start_time,
+        a.end_time,
+        a.day_of_week,
+        a.activity_date,
+        a.location,
+        a.max_capacity,
+        a.is_active,
+        COALESCE(COUNT(att.id), 0)::INT AS enrolled_count
+      FROM signtrue.activities a
+      LEFT JOIN signtrue.attendance att 
+        ON a.id = att.activity_id 
+        AND att.activity_date = $1
+      WHERE a.activity_date = $1 
+      GROUP BY a.id
+      ORDER BY a.start_time ASC
+    `;
+
+    const result = await pool.query(query, [date]);
 
     // DEBUG LOG: Print the exact first row returned by Postgres
     if (result.rows.length > 0) {
-      console.log("DB RAW ROW SAMPLE:", result.rows[0]);
+      console.log("DB RAW ROW SAMPLE WITH ENROLLED COUNT:", result.rows[0]);
     }
     
     res.json(result.rows);
