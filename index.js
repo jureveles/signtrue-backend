@@ -320,46 +320,47 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
   }
 });
 
-// 5C. DEBUG ATTENDANCE REPORT
+// 5C. GET ATTENDANCE/ENROLLMENT REPORT BY DATE RANGE
 app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   const { start_date, end_date } = req.query;
 
-  console.log("\n=================== ATTENDANCE REPORT DEBUG ===================");
-  console.log("1. Incoming Date Range Parameters:", { start_date, end_date });
+  console.log("=== REPORT REQUEST ===");
+  console.log("Params:", { start_date, end_date });
+
+  if (!start_date || !end_date) {
+    return res.status(400).json({
+      error: "Missing required query parameters: start_date and end_date"
+    });
+  }
 
   try {
-    // Check 1: Sample raw records from signtrue.attendance
-    const rawAttendance = await pool.query(`SELECT * FROM signtrue.attendance LIMIT 5;`);
-    console.log("2. Raw 'attendance' table sample (first 5):", rawAttendance.rows);
-
-    // Check 2: Total count of attendance records
-    const countAttendance = await pool.query(`SELECT COUNT(*) FROM signtrue.attendance;`);
-    console.log("3. Total rows in 'attendance' table:", countAttendance.rows[0].count);
-
-    // Check 3: Sample raw records from signtrue.activities
-    const rawActivities = await pool.query(`SELECT id, title, activity_date FROM signtrue.activities LIMIT 5;`);
-    console.log("4. Raw 'activities' table sample (first 5):", rawActivities.rows);
-
-    // Check 4: Main JOIN query without WHERE clause
-    const testJoin = await pool.query(`
+    const query = `
       SELECT 
-        att.student_id,
-        att.activity_id,
-        att.activity_date AS att_date,
-        a.activity_date AS act_date,
-        a.title
-      FROM signtrue.attendance att
-      LEFT JOIN signtrue.activities a ON att.activity_id::text = a.id::text
-      LIMIT 10;
-    `);
-    console.log("5. Unfiltered JOIN test sample (first 10):", testJoin.rows);
+        e.student_id AS student_id,
+        COALESCE(u.first_name, '') AS first_name,
+        COALESCE(u.last_name, '') AS last_name,
+        a.title AS class,
+        a.start_time,
+        a.end_time
+      FROM signtrue.enrollments e
+      JOIN signtrue.activities a 
+        ON e.activity_id::text = a.id::text
+      LEFT JOIN signtrue.users u 
+        ON e.student_id::text = u.local_id::text
+      WHERE a.activity_date::date BETWEEN $1::date AND $2::date
+      ORDER BY a.activity_date DESC, a.title ASC, u.last_name ASC;
+    `;
 
-    res.json(testJoin.rows);
+    const result = await pool.query(query, [start_date, end_date]);
+    console.log(`Found ${result.rows.length} enrolled records.`);
+    
+    res.json(result.rows);
   } catch (err) {
-    console.error("DEBUG Query Error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Fetch attendance report error:", err);
+    res.status(500).json({ error: "Error fetching attendance report" });
   }
 });
+
 
 // 6. SCHOOLS LIST (UPDATED STRUCTURAL RESPONSE)
 app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
