@@ -324,6 +324,9 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
 app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   const { start_date, end_date } = req.query;
 
+  console.log("=== ATTENDANCE REPORT DEBUG ===");
+  console.log("Query Params:", { start_date, end_date });
+
   if (!start_date || !end_date) {
     return res.status(400).json({
       error: "Missing required query parameters: start_date and end_date"
@@ -338,7 +341,8 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
         COALESCE(u.last_name, '') AS last_name,
         a.title AS class,
         a.start_time,
-        a.end_time
+        a.end_time,
+        att.activity_date
       FROM signtrue.attendance att
       JOIN signtrue.activities a 
         ON att.activity_id = a.id
@@ -349,6 +353,12 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
     `;
 
     const result = await pool.query(query, [start_date, end_date]);
+    
+    console.log("Row count found:", result.rows.length);
+    if (result.rows.length > 0) {
+      console.log("Sample Row 0:", result.rows[0]);
+    }
+
     res.json(result.rows);
   } catch (err) {
     console.error("Fetch attendance report error:", err);
