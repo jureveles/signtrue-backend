@@ -320,6 +320,7 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
   }
 });
 
+
 // 5C. GET ATTENDANCE/ENROLLMENT REPORT BY DATE RANGE
 app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   const { start_date, end_date } = req.query;
@@ -336,23 +337,24 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   try {
     const query = `
       SELECT 
-        e.student_id AS student_id,
+        att.student_id AS student_id,
         COALESCE(u.first_name, '') AS first_name,
         COALESCE(u.last_name, '') AS last_name,
         a.title AS class,
         a.start_time,
-        a.end_time
-      FROM signtrue.enrollments e
+        a.end_time,
+        att.activity_date
+      FROM signtrue.attendance att
       JOIN signtrue.activities a 
-        ON e.activity_id::text = a.id::text
+        ON att.activity_id::text = a.id::text
       LEFT JOIN signtrue.users u 
-        ON e.student_id::text = u.local_id::text
-      WHERE a.activity_date::date BETWEEN $1::date AND $2::date
-      ORDER BY a.activity_date DESC, a.title ASC, u.last_name ASC;
+        ON att.student_id::text = u.local_id::text
+      WHERE att.activity_date::date BETWEEN $1::date AND $2::date
+      ORDER BY att.activity_date DESC, a.title ASC, u.last_name ASC;
     `;
 
     const result = await pool.query(query, [start_date, end_date]);
-    console.log(`Found ${result.rows.length} enrolled records.`);
+    console.log(`Found ${result.rows.length} attendance/enrollment records.`);
     
     res.json(result.rows);
   } catch (err) {
