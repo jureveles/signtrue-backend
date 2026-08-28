@@ -320,6 +320,43 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
   }
 });
 
+// 5C. GET ATTENDANCE REPORT BY DATE RANGE
+app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
+  const { start_date, end_date } = req.query;
+
+  if (!start_date || !end_date) {
+    return res.status(400).json({
+      error: "Missing required query parameters: start_date and end_date"
+    });
+  }
+
+  try {
+    const query = `
+      SELECT 
+        att.activity_date::text AS activity_date,
+        att.activity_id,
+        a.title AS activity_title,
+        att.student_id AS local_id,
+        COALESCE(u.first_name, '') AS first_name,
+        COALESCE(u.last_name, '') AS last_name,
+        att.status,
+        att.teacher_id
+      FROM signtrue.attendance att
+      JOIN signtrue.activities a 
+        ON att.activity_id = a.id
+      LEFT JOIN signtrue.users u 
+        ON att.student_id::text = u.local_id::text
+      WHERE att.activity_date BETWEEN $1 AND $2
+      ORDER BY att.activity_date DESC, a.title ASC, u.last_name ASC;
+    `;
+
+    const result = await pool.query(query, [start_date, end_date]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fetch attendance report error:", err);
+    res.status(500).json({ error: "Error fetching attendance report" });
+  }
+});
 
 // 6. SCHOOLS LIST (UPDATED STRUCTURAL RESPONSE)
 app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
