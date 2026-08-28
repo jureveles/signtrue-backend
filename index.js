@@ -320,49 +320,44 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
   }
 });
 
-// 5C. GET ATTENDANCE REPORT BY DATE RANGE
+// 5C. DEBUG ATTENDANCE REPORT
 app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   const { start_date, end_date } = req.query;
 
-  console.log("=== ATTENDANCE REPORT REQUEST ===");
-  console.log("Start Date:", start_date, "End Date:", end_date);
-
-  if (!start_date || !end_date) {
-    return res.status(400).json({
-      error: "Missing required query parameters: start_date and end_date"
-    });
-  }
+  console.log("\n=================== ATTENDANCE REPORT DEBUG ===================");
+  console.log("1. Incoming Date Range Parameters:", { start_date, end_date });
 
   try {
-    const query = `
+    // Check 1: Sample raw records from signtrue.attendance
+    const rawAttendance = await pool.query(`SELECT * FROM signtrue.attendance LIMIT 5;`);
+    console.log("2. Raw 'attendance' table sample (first 5):", rawAttendance.rows);
+
+    // Check 2: Total count of attendance records
+    const countAttendance = await pool.query(`SELECT COUNT(*) FROM signtrue.attendance;`);
+    console.log("3. Total rows in 'attendance' table:", countAttendance.rows[0].count);
+
+    // Check 3: Sample raw records from signtrue.activities
+    const rawActivities = await pool.query(`SELECT id, title, activity_date FROM signtrue.activities LIMIT 5;`);
+    console.log("4. Raw 'activities' table sample (first 5):", rawActivities.rows);
+
+    // Check 4: Main JOIN query without WHERE clause
+    const testJoin = await pool.query(`
       SELECT 
-        att.student_id AS student_id,
-        COALESCE(u.first_name, '') AS first_name,
-        COALESCE(u.last_name, '') AS last_name,
-        a.title AS class,
-        a.start_time,
-        a.end_time,
-        COALESCE(att.activity_date, a.activity_date) AS activity_date
+        att.student_id,
+        att.activity_id,
+        att.activity_date AS att_date,
+        a.activity_date AS act_date,
+        a.title
       FROM signtrue.attendance att
-      LEFT JOIN signtrue.activities a 
-        ON att.activity_id::text = a.id::text
-      LEFT JOIN signtrue.users u 
-        ON att.student_id::text = u.local_id::text
-      WHERE COALESCE(att.activity_date, a.activity_date)::date BETWEEN $1::date AND $2::date
-      ORDER BY COALESCE(att.activity_date, a.activity_date) DESC, a.title ASC;
-    `;
+      LEFT JOIN signtrue.activities a ON att.activity_id::text = a.id::text
+      LIMIT 10;
+    `);
+    console.log("5. Unfiltered JOIN test sample (first 10):", testJoin.rows);
 
-    const result = await pool.query(query, [start_date, end_date]);
-    
-    console.log("Found Attendance Rows:", result.rows.length);
-    if (result.rows.length > 0) {
-      console.log("Sample Result Row:", result.rows[0]);
-    }
-
-    res.json(result.rows);
+    res.json(testJoin.rows);
   } catch (err) {
-    console.error("Fetch attendance report error:", err);
-    res.status(500).json({ error: "Error fetching attendance report" });
+    console.error("DEBUG Query Error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
