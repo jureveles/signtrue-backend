@@ -324,8 +324,8 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
 app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   const { start_date, end_date } = req.query;
 
-  console.log("=== ATTENDANCE REPORT DEBUG ===");
-  console.log("Query Params:", { start_date, end_date });
+  console.log("=== ATTENDANCE REPORT REQUEST ===");
+  console.log("Start Date:", start_date, "End Date:", end_date);
 
   if (!start_date || !end_date) {
     return res.status(400).json({
@@ -342,21 +342,21 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
         a.title AS class,
         a.start_time,
         a.end_time,
-        att.activity_date
+        COALESCE(att.activity_date, a.activity_date) AS activity_date
       FROM signtrue.attendance att
-      JOIN signtrue.activities a 
-        ON att.activity_id = a.id
+      LEFT JOIN signtrue.activities a 
+        ON att.activity_id::text = a.id::text
       LEFT JOIN signtrue.users u 
         ON att.student_id::text = u.local_id::text
-      WHERE att.activity_date BETWEEN $1 AND $2
-      ORDER BY att.activity_date DESC, a.title ASC, u.last_name ASC;
+      WHERE COALESCE(att.activity_date, a.activity_date)::date BETWEEN $1::date AND $2::date
+      ORDER BY COALESCE(att.activity_date, a.activity_date) DESC, a.title ASC;
     `;
 
     const result = await pool.query(query, [start_date, end_date]);
     
-    console.log("Row count found:", result.rows.length);
+    console.log("Found Attendance Rows:", result.rows.length);
     if (result.rows.length > 0) {
-      console.log("Sample Row 0:", result.rows[0]);
+      console.log("Sample Result Row:", result.rows[0]);
     }
 
     res.json(result.rows);
