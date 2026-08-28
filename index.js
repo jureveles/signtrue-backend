@@ -207,16 +207,18 @@ app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
   }
 });
 
-// 4. GET ENROLLMENT FOR ACTIVITY
+// 4. GET ENROLLMENT FOR ACTIVITY BY DATE
 app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req, res) => {
   const { activityId } = req.params;
+  const { date } = req.query; // Capture optional date query param
 
   try {
-    const query = `
+    let query = `
       SELECT 
         a.id,
         a.student_id,
         a.status,
+        a.activity_date,
         COALESCE(u.first_name, '') AS first_name,
         COALESCE(u.last_name, '') AS last_name,
         COALESCE(u.local_id, a.student_id) AS local_id,
@@ -228,13 +230,22 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
       FROM signtrue.attendance a
       LEFT JOIN signtrue.users u ON a.student_id = u.local_id
       WHERE a.activity_id = $1
+    `;
+
+    const queryParams = [activityId];
+
+    if (date) {
+      query += ` AND a.activity_date = $2`;
+      queryParams.push(date);
+    }
+
+    query += `
       ORDER BY 
         COALESCE(u.last_name, '') ASC,
         COALESCE(u.first_name, '') ASC
     `;
 
-    const result = await pool.query(query, [activityId]);
-
+    const result = await pool.query(query, queryParams);
     res.json(result.rows);
   } catch (err) {
     console.error("Fetch roster error:", err);
@@ -242,25 +253,32 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
   }
 });
 
-// 5. RECORD ATTENDANCE
+// 5. RECORD / UPDATE ATTENDANCE (UPSERT)
 app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
 
   try {
-    // Check if the student is already registered for ANY activity on this date
-    const existingCheck = await pool.query(
-      `SELECT id FROM signtrue.attendance WHERE student_id = $1 AND activity_date = $2`,
-      [student_id, activity_date]
+    // Check if student registered for a DIFFERENT activity on this date
+    const externalCheck = await pool.query(
+      `SELECT id, activity_id FROM signtrue.attendance 
+       WHERE student_id = $1 AND activity_date = $2 AND activity_id != $3`,
+      [student_id, activity_date, activity_id]
     );
 
-    if (existingCheck.rows.length > 0) {
-      return res.status(409).json({ error: "Already registered for a class on this date" });
+    if (externalCheck.rows.length > 0) {
+      return res.status(409).json({ error: "Already registered for a different class on this date" });
     }
 
+    // Insert or Update (UPSERT) status for the current activity
     const query = `
       INSERT INTO signtrue.attendance 
       (student_id, activity_id, teacher_id, activity_date, status)
       VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (student_id, activity_date) 
+      DO UPDATE SET 
+        status = EXCLUDED.status,
+        teacher_id = EXCLUDED.teacher_id,
+        activity_id = EXCLUDED.activity_id
       RETURNING *
     `;
 
@@ -272,13 +290,12 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
       status || 'Pending'
     ]);
 
-    res.status(201).json(result.rows[0]);
+    res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Attendance error:", err);
     res.status(500).json({ error: "Attendance failed" });
   }
 });
-
 
 // 5B. GET STUDENT REGISTRATIONS BY DATE
 app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, res) => {
