@@ -207,6 +207,65 @@ app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
   }
 });
 
+// 3B. UPDATE EXISTING ACTIVITY HERE
+app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
+  const { id } = req.params;
+  const {
+    title,
+    instructor,
+    start_time,
+    end_time,
+    day_of_week,
+    activity_date,
+    location,
+    max_capacity,
+    is_active
+  } = req.body;
+
+  try {
+    const query = `
+      UPDATE signtrue.activities 
+      SET 
+        title = $1, 
+        instructor = $2, 
+        start_time = $3, 
+        end_time = $4, 
+        day_of_week = $5, 
+        activity_date = $6, 
+        location = $7, 
+        max_capacity = $8,
+        is_active = COALESCE($9, is_active)
+      WHERE id = $10
+      RETURNING *;
+    `;
+
+    const values = [
+      title,
+      instructor,
+      start_time,
+      end_time,
+      day_of_week,
+      activity_date,
+      location,
+      max_capacity !== undefined && max_capacity !== null ? parseInt(max_capacity, 10) : 20,
+      is_active !== undefined ? is_active : true,
+      id
+    ];
+
+    const result = await pool.query(query, values);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error("Update Activity Error:", err);
+    res.status(500).json({ error: "Could not update activity" });
+  }
+});
+
+
 // 4. GET ENROLLMENT FOR ACTIVITY BY DATE
 app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req, res) => {
   const { activityId } = req.params;
