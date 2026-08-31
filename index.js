@@ -379,7 +379,6 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
   }
 });
 
-
 // 5C. GET ATTENDANCE/ENROLLMENT REPORT BY DATE RANGE
 app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   const { start_date, end_date } = req.query;
@@ -400,6 +399,7 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
         COALESCE(u.first_name, '') AS first_name,
         COALESCE(u.last_name, '') AS last_name,
         a.title AS class,
+        a.instructor AS instructor, -- <--- ADDED INSTRUCTOR HERE
         a.start_time,
         a.end_time,
         att.activity_date
