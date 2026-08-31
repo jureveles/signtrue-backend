@@ -1309,6 +1309,10 @@ app.post('/signtrue/reset-password', async (req, res) => {
 // USER MANAGEMENT ROUTES (SignTrue)
 // ===========================================================================
 
+// ===========================================================================
+// USER MANAGEMENT ROUTES (SignTrue)
+// ===========================================================================
+
 // 17. GET USERS FOR ADMIN'S SCHOOL
 app.get('/signtrue/users', checkSecretKey, async (req, res) => {
   const { school_id } = req.query;
@@ -1317,7 +1321,6 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
     let query;
     let values = [];
 
-    // Filter by school_id if passed, otherwise fetch all users
     if (school_id) {
       query = `
         SELECT 
@@ -1327,6 +1330,7 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
           last_name, 
           chosen_name,
           email, 
+          username,
           grade_level, 
           role,
           is_active,
@@ -1345,6 +1349,7 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
           last_name, 
           chosen_name,
           email, 
+          username,
           grade_level, 
           role,
           is_active,
@@ -1358,6 +1363,178 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
     return res.status(200).json(result.rows);
   } catch (err) {
     console.error('Error fetching users:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 18. CREATE A NEW USER
+app.post('/signtrue/users', checkSecretKey, async (req, res) => {
+  const { 
+    local_id, 
+    first_name, 
+    last_name, 
+    chosen_name,
+    email, 
+    username,
+    grade_level, 
+    role, 
+    school_id, 
+    password 
+  } = req.body;
+
+  if (!local_id || !first_name || !last_name) {
+    return res.status(400).json({ 
+      error: 'Missing required fields: local_id, first_name, last_name' 
+    });
+  }
+
+  try {
+    const bcrypt = require('bcryptjs');
+    const rawPassword = password && password.trim() !== '' ? password : local_id.toString();
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+    const query = `
+      INSERT INTO signtrue.users (
+        local_id, 
+        first_name, 
+        last_name, 
+        chosen_name,
+        email, 
+        username,
+        grade_level, 
+        role,
+        school_id,
+        password_hash,
+        is_active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+      RETURNING id, local_id, first_name, last_name, chosen_name, email, username, grade_level, role, school_id, is_active;
+    `;
+
+    const values = [
+      local_id, 
+      first_name, 
+      last_name, 
+      chosen_name || null,
+      email || null, 
+      username || null,
+      grade_level ? parseInt(grade_level, 10) : null, 
+      role || 'student',
+      school_id || 1,
+      passwordHash
+    ];
+
+    const result = await pool.query(query, values);
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating user:', err);
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Local ID or Username already exists.' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 19. UPDATE AN EXISTING USER
+app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
+  const { id } = req.params;
+  const { 
+    local_id, 
+    first_name, 
+    last_name, 
+    chosen_name,
+    email, 
+    username,
+    grade_level, 
+    role, 
+    school_id, 
+    is_active,
+    password 
+  } = req.body;
+
+  try {
+    const bcrypt = require('bcryptjs');
+
+    let updateQuery;
+    let values;
+
+    if (password && password.trim() !== '') {
+      const passwordHash = await bcrypt.hash(password, 10);
+      updateQuery = `
+        UPDATE signtrue.users
+        SET 
+          local_id = $1,
+          first_name = $2,
+          last_name = $3,
+          chosen_name = $4,
+          email = $5,
+          username = $6,
+          grade_level = $7,
+          role = $8,
+          school_id = COALESCE($9, school_id),
+          is_active = COALESCE($10, is_active),
+          password_hash = $11
+        WHERE id = $12
+        RETURNING id, local_id, first_name, last_name, chosen_name, email, username, grade_level, role, school_id, is_active;
+      `;
+      values = [
+        local_id, 
+        first_name, 
+        last_name, 
+        chosen_name || null,
+        email || null, 
+        username || null,
+        grade_level ? parseInt(grade_level, 10) : null, 
+        role || 'student',
+        school_id || null,
+        is_active !== undefined ? is_active : null,
+        passwordHash,
+        id
+      ];
+    } else {
+      updateQuery = `
+        UPDATE signtrue.users
+        SET 
+          local_id = $1,
+          first_name = $2,
+          last_name = $3,
+          chosen_name = $4,
+          email = $5,
+          username = $6,
+          grade_level = $7,
+          role = $8,
+          school_id = COALESCE($9, school_id),
+          is_active = COALESCE($10, is_active)
+        WHERE id = $11
+        RETURNING id, local_id, first_name, last_name, chosen_name, email, username, grade_level, role, school_id, is_active;
+      `;
+      values = [
+        local_id, 
+        first_name, 
+        last_name, 
+        chosen_name || null,
+        email || null, 
+        username || null,
+        grade_level ? parseInt(grade_level, 10) : null, 
+        role || 'student',
+        school_id || null,
+        is_active !== undefined ? is_active : null,
+        id
+      ];
+    }
+
+    const result = await pool.query(updateQuery, values);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating user:', err);
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Local ID or Username is already in use.' });
+    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
