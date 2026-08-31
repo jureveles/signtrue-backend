@@ -1306,6 +1306,158 @@ app.post('/signtrue/reset-password', async (req, res) => {
 });
 
 // ===========================================================================
+// USER MANAGEMENT ROUTES (SignTrue)
+// ===========================================================================
+
+// 17. GET ALL USERS (Roster List)
+app.get('/signtrue/users', checkSecretKey, async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        id, 
+        local_id, 
+        first_name, 
+        last_name, 
+        email, 
+        class_grade, 
+        role,
+        is_active,
+        school_id
+      FROM signtrue.users 
+      ORDER BY last_name ASC, first_name ASC;
+    `;
+    const result = await pool.query(query);
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 18. CREATE A NEW USER
+app.post('/signtrue/users', checkSecretKey, async (req, res) => {
+  const { 
+    local_id, 
+    first_name, 
+    last_name, 
+    email, 
+    class_grade, 
+    role, 
+    school_id, 
+    password 
+  } = req.body;
+
+  if (!local_id || !first_name || !last_name) {
+    return res.status(400).json({ 
+      error: 'Missing required fields: local_id, first_name, last_name' 
+    });
+  }
+
+  try {
+    let passwordHash = null;
+    if (password) {
+      const bcrypt = require('bcryptjs');
+      passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    const query = `
+      INSERT INTO signtrue.users (
+        local_id, 
+        first_name, 
+        last_name, 
+        email, 
+        class_grade, 
+        role,
+        school_id,
+        password_hash,
+        is_active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+      RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
+    `;
+
+    const values = [
+      local_id, 
+      first_name, 
+      last_name, 
+      email || null, 
+      class_grade || null, 
+      role || 'student',
+      school_id || 1,
+      passwordHash
+    ];
+
+    const result = await pool.query(query, values);
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating user:', err);
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'User with this Local ID or Email already exists.' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 19. UPDATE AN EXISTING USER
+app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
+  const { id } = req.params;
+  const { 
+    local_id, 
+    first_name, 
+    last_name, 
+    email, 
+    class_grade, 
+    role, 
+    school_id, 
+    is_active 
+  } = req.body;
+
+  try {
+    const query = `
+      UPDATE signtrue.users
+      SET 
+        local_id = $1,
+        first_name = $2,
+        last_name = $3,
+        email = $4,
+        class_grade = $5,
+        role = $6,
+        school_id = COALESCE($7, school_id),
+        is_active = COALESCE($8, is_active)
+      WHERE id = $9
+      RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
+    `;
+
+    const values = [
+      local_id, 
+      first_name, 
+      last_name, 
+      email || null, 
+      class_grade || null, 
+      role || 'student',
+      school_id || null,
+      is_active !== undefined ? is_active : null,
+      id
+    ];
+
+    const result = await pool.query(query, values);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating user:', err);
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Local ID or Email is already in use by another user.' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+// ===========================================================================
 // SERVER START
 // ===========================================================================
 
