@@ -1309,25 +1309,52 @@ app.post('/signtrue/reset-password', async (req, res) => {
 // USER MANAGEMENT ROUTES (SignTrue)
 // ===========================================================================
 
-// 17. GET ALL USERS (Roster List)
+// 17. GET USERS FOR ADMIN'S SCHOOL
 app.get('/signtrue/users', checkSecretKey, async (req, res) => {
+  const { school_id } = req.query;
+
   try {
-    const query = `
-      SELECT 
-        id, 
-        local_id, 
-        first_name, 
-        last_name, 
-        chosen_name,
-        email, 
-        grade_level, 
-        role,
-        is_active,
-        school_id
-      FROM signtrue.users 
-      ORDER BY last_name ASC, first_name ASC;
-    `;
-    const result = await pool.query(query);
+    let query;
+    let values = [];
+
+    // Filter by school_id if passed, otherwise fetch all users
+    if (school_id) {
+      query = `
+        SELECT 
+          id, 
+          local_id, 
+          first_name, 
+          last_name, 
+          chosen_name,
+          email, 
+          grade_level, 
+          role,
+          is_active,
+          school_id
+        FROM signtrue.users 
+        WHERE school_id = $1
+        ORDER BY last_name ASC, first_name ASC;
+      `;
+      values = [school_id];
+    } else {
+      query = `
+        SELECT 
+          id, 
+          local_id, 
+          first_name, 
+          last_name, 
+          chosen_name,
+          email, 
+          grade_level, 
+          role,
+          is_active,
+          school_id
+        FROM signtrue.users 
+        ORDER BY last_name ASC, first_name ASC;
+      `;
+    }
+
+    const result = await pool.query(query, values);
     return res.status(200).json(result.rows);
   } catch (err) {
     console.error('Error fetching users:', err);
