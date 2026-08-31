@@ -1334,7 +1334,7 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
   }
 });
 
-// 18. CREATE A NEW USER
+// 18. CREATE A NEW USER (With Password Hashing)
 app.post('/signtrue/users', checkSecretKey, async (req, res) => {
   const { 
     local_id, 
@@ -1354,11 +1354,10 @@ app.post('/signtrue/users', checkSecretKey, async (req, res) => {
   }
 
   try {
-    let passwordHash = null;
-    if (password) {
-      const bcrypt = require('bcryptjs');
-      passwordHash = await bcrypt.hash(password, 10);
-    }
+    const bcrypt = require('bcryptjs');
+    // Hash provided password or fall back to local_id as default password
+    const rawPassword = password && password.trim() !== '' ? password : local_id.toString();
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
 
     const query = `
       INSERT INTO signtrue.users (
@@ -1398,7 +1397,7 @@ app.post('/signtrue/users', checkSecretKey, async (req, res) => {
   }
 });
 
-// 19. UPDATE AN EXISTING USER
+// 19. UPDATE AN EXISTING USER (With Optional Password Hashing)
 app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
   const { id } = req.params;
   const { 
@@ -1409,38 +1408,75 @@ app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
     class_grade, 
     role, 
     school_id, 
-    is_active 
+    is_active,
+    password 
   } = req.body;
 
   try {
-    const query = `
-      UPDATE signtrue.users
-      SET 
-        local_id = $1,
-        first_name = $2,
-        last_name = $3,
-        email = $4,
-        class_grade = $5,
-        role = $6,
-        school_id = COALESCE($7, school_id),
-        is_active = COALESCE($8, is_active)
-      WHERE id = $9
-      RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
-    `;
+    const bcrypt = require('bcryptjs');
 
-    const values = [
-      local_id, 
-      first_name, 
-      last_name, 
-      email || null, 
-      class_grade || null, 
-      role || 'student',
-      school_id || null,
-      is_active !== undefined ? is_active : null,
-      id
-    ];
+    // If a new password is provided, hash it; otherwise leave password_hash unchanged
+    let updateQuery;
+    let values;
 
-    const result = await pool.query(query, values);
+    if (password && password.trim() !== '') {
+      const passwordHash = await bcrypt.hash(password, 10);
+      updateQuery = `
+        UPDATE signtrue.users
+        SET 
+          local_id = $1,
+          first_name = $2,
+          last_name = $3,
+          email = $4,
+          class_grade = $5,
+          role = $6,
+          school_id = COALESCE($7, school_id),
+          is_active = COALESCE($8, is_active),
+          password_hash = $9
+        WHERE id = $10
+        RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
+      `;
+      values = [
+        local_id, 
+        first_name, 
+        last_name, 
+        email || null, 
+        class_grade || null, 
+        role || 'student',
+        school_id || null,
+        is_active !== undefined ? is_active : null,
+        passwordHash,
+        id
+      ];
+    } else {
+      updateQuery = `
+        UPDATE signtrue.users
+        SET 
+          local_id = $1,
+          first_name = $2,
+          last_name = $3,
+          email = $4,
+          class_grade = $5,
+          role = $6,
+          school_id = COALESCE($7, school_id),
+          is_active = COALESCE($8, is_active)
+        WHERE id = $9
+        RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
+      `;
+      values = [
+        local_id, 
+        first_name, 
+        last_name, 
+        email || null, 
+        class_grade || null, 
+        role || 'student',
+        school_id || null,
+        is_active !== undefined ? is_active : null,
+        id
+      ];
+    }
+
+    const result = await pool.query(updateQuery, values);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'User not found' });
