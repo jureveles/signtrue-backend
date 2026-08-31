@@ -1318,8 +1318,9 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
         local_id, 
         first_name, 
         last_name, 
+        chosen_name,
         email, 
-        class_grade, 
+        grade_level, 
         role,
         is_active,
         school_id
@@ -1334,14 +1335,15 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
   }
 });
 
-// 18. CREATE A NEW USER (With Password Hashing)
+// 18. CREATE A NEW USER (With Password Hashing & grade_level)
 app.post('/signtrue/users', checkSecretKey, async (req, res) => {
   const { 
     local_id, 
     first_name, 
     last_name, 
+    chosen_name,
     email, 
-    class_grade, 
+    grade_level, 
     role, 
     school_id, 
     password 
@@ -1355,7 +1357,7 @@ app.post('/signtrue/users', checkSecretKey, async (req, res) => {
 
   try {
     const bcrypt = require('bcryptjs');
-    // Hash provided password or fall back to local_id as default password
+    // Default password to local_id if none provided
     const rawPassword = password && password.trim() !== '' ? password : local_id.toString();
     const passwordHash = await bcrypt.hash(rawPassword, 10);
 
@@ -1364,23 +1366,25 @@ app.post('/signtrue/users', checkSecretKey, async (req, res) => {
         local_id, 
         first_name, 
         last_name, 
+        chosen_name,
         email, 
-        class_grade, 
+        grade_level, 
         role,
         school_id,
         password_hash,
         is_active
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-      RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
+      RETURNING id, local_id, first_name, last_name, chosen_name, email, grade_level, role, school_id, is_active;
     `;
 
     const values = [
       local_id, 
       first_name, 
       last_name, 
+      chosen_name || null,
       email || null, 
-      class_grade || null, 
+      grade_level ? parseInt(grade_level, 10) : null, 
       role || 'student',
       school_id || 1,
       passwordHash
@@ -1397,15 +1401,16 @@ app.post('/signtrue/users', checkSecretKey, async (req, res) => {
   }
 });
 
-// 19. UPDATE AN EXISTING USER (With Optional Password Hashing)
+// 19. UPDATE AN EXISTING USER (With Optional Password Hash & grade_level)
 app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
   const { id } = req.params;
   const { 
     local_id, 
     first_name, 
     last_name, 
+    chosen_name,
     email, 
-    class_grade, 
+    grade_level, 
     role, 
     school_id, 
     is_active,
@@ -1415,7 +1420,6 @@ app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
   try {
     const bcrypt = require('bcryptjs');
 
-    // If a new password is provided, hash it; otherwise leave password_hash unchanged
     let updateQuery;
     let values;
 
@@ -1427,21 +1431,23 @@ app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
           local_id = $1,
           first_name = $2,
           last_name = $3,
-          email = $4,
-          class_grade = $5,
-          role = $6,
-          school_id = COALESCE($7, school_id),
-          is_active = COALESCE($8, is_active),
-          password_hash = $9
-        WHERE id = $10
-        RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
+          chosen_name = $4,
+          email = $5,
+          grade_level = $6,
+          role = $7,
+          school_id = COALESCE($8, school_id),
+          is_active = COALESCE($9, is_active),
+          password_hash = $10
+        WHERE id = $11
+        RETURNING id, local_id, first_name, last_name, chosen_name, email, grade_level, role, school_id, is_active;
       `;
       values = [
         local_id, 
         first_name, 
         last_name, 
+        chosen_name || null,
         email || null, 
-        class_grade || null, 
+        grade_level ? parseInt(grade_level, 10) : null, 
         role || 'student',
         school_id || null,
         is_active !== undefined ? is_active : null,
@@ -1455,20 +1461,22 @@ app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
           local_id = $1,
           first_name = $2,
           last_name = $3,
-          email = $4,
-          class_grade = $5,
-          role = $6,
-          school_id = COALESCE($7, school_id),
-          is_active = COALESCE($8, is_active)
-        WHERE id = $9
-        RETURNING id, local_id, first_name, last_name, email, class_grade, role, school_id, is_active;
+          chosen_name = $4,
+          email = $5,
+          grade_level = $6,
+          role = $7,
+          school_id = COALESCE($8, school_id),
+          is_active = COALESCE($9, is_active)
+        WHERE id = $10
+        RETURNING id, local_id, first_name, last_name, chosen_name, email, grade_level, role, school_id, is_active;
       `;
       values = [
         local_id, 
         first_name, 
         last_name, 
+        chosen_name || null,
         email || null, 
-        class_grade || null, 
+        grade_level ? parseInt(grade_level, 10) : null, 
         role || 'student',
         school_id || null,
         is_active !== undefined ? is_active : null,
@@ -1486,12 +1494,11 @@ app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
   } catch (err) {
     console.error('Error updating user:', err);
     if (err.code === '23505') {
-      return res.status(409).json({ error: 'Local ID or Email is already in use by another user.' });
+      return res.status(409).json({ error: 'Local ID or Username is already in use.' });
     }
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 // ===========================================================================
 // SERVER START
