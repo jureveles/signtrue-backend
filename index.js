@@ -312,6 +312,7 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
   }
 });
 
+
 // 5. RECORD ATTENDANCE (MULTIPLE SESSIONS ALLOWED IF TIMES DO NOT OVERLAP)
 app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
@@ -324,14 +325,14 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
     );
 
     if (candidateRes.rows.length === 0) {
-      return res.status(444).json({ error: "Activity not found" });
+      return res.status(404).json({ error: "Activity not found" });
     }
 
     const { start_time: candStart, end_time: candEnd } = candidateRes.rows[0];
 
     // 2. Fetch existing registered activities for this student on the same date
     const existingRegs = await pool.query(
-      `SELECT a.id, act.title, act.start_time, act.end_time 
+      `SELECT a.activity_id, act.title, act.start_time, act.end_time 
        FROM signtrue.attendance a
        JOIN signtrue.activities act ON a.activity_id = act.id
        WHERE a.student_id = $1 AND a.activity_date = $2`,
@@ -350,7 +351,8 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
 
     // 3. Check for time overlap with existing registrations
     for (const reg of existingRegs.rows) {
-      if (reg.id === activity_id) continue; // Skip if re-registering same activity
+      // FIX: Compare activity_id to activity_id, so updates to the same session don't conflict
+      if (parseInt(reg.activity_id, 10) === parseInt(activity_id, 10)) continue; 
 
       const regStartMins = timeToMinutes(reg.start_time);
       const regEndMins = timeToMinutes(reg.end_time);
@@ -362,12 +364,12 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
       }
     }
 
-    // 4. Insert or Update status for THIS specific (student, activity, date) combination
+    // 4. Insert or Update status using the new unique constraint target
     const query = `
       INSERT INTO signtrue.attendance 
         (student_id, activity_id, teacher_id, activity_date, status)
       VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (student_id, activity_id, activity_date) 
+      ON CONFLICT ON CONSTRAINT attendance_student_activity_date_key
       DO UPDATE SET 
         status = EXCLUDED.status,
         teacher_id = EXCLUDED.teacher_id
@@ -385,10 +387,9 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
     return res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Attendance error:", err);
-    return res.status(500).json({ error: "Attendance failed" });
+    return res.status(500).json({ error: "Attendance failed", details: err.message });
   }
 });
-
 
 // 5B. GET STUDENT REGISTRATIONS BY DATE
 app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, res) => {
