@@ -312,33 +312,66 @@ app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req,
   }
 });
 
-// 5. RECORD / UPDATE ATTENDANCE (UPSERT)
+// 5. RECORD ATTENDANCE (MULTIPLE SESSIONS ALLOWED IF TIMES DO NOT OVERLAP)
 app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
   const { student_id, activity_id, teacher_id, activity_date, status } = req.body;
 
   try {
-    // Check if student registered for a DIFFERENT activity on this date
-    const externalCheck = await pool.query(
-      `SELECT id, activity_id FROM signtrue.attendance 
-       WHERE student_id = $1 AND activity_date = $2 AND activity_id != $3`,
-      [student_id, activity_date, activity_id]
+    // 1. Fetch details for the new candidate activity
+    const candidateRes = await pool.query(
+      `SELECT id, start_time, end_time FROM signtrue.activities WHERE id = $1`,
+      [activity_id]
     );
 
-    if (externalCheck.rows.length > 0) {
-      return res.status(409).json({ error: "Already registered for a different class on this date" });
+    if (candidateRes.rows.length === 0) {
+      return res.status(444).json({ error: "Activity not found" });
     }
 
-    // Insert or Update (UPSERT) status for the current activity
+    const { start_time: candStart, end_time: candEnd } = candidateRes.rows[0];
+
+    // 2. Fetch existing registered activities for this student on the same date
+    const existingRegs = await pool.query(
+      `SELECT a.id, act.title, act.start_time, act.end_time 
+       FROM signtrue.attendance a
+       JOIN signtrue.activities act ON a.activity_id = act.id
+       WHERE a.student_id = $1 AND a.activity_date = $2`,
+      [student_id, activity_date]
+    );
+
+    // Helper to convert "HH:MM:SS" into minutes from midnight
+    const timeToMinutes = (timeStr) => {
+      if (!timeStr) return 0;
+      const parts = timeStr.toString().split(':');
+      return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    };
+
+    const candStartMins = timeToMinutes(candStart);
+    const candEndMins = timeToMinutes(candEnd);
+
+    // 3. Check for time overlap with existing registrations
+    for (const reg of existingRegs.rows) {
+      if (reg.id === activity_id) continue; // Skip if re-registering same activity
+
+      const regStartMins = timeToMinutes(reg.start_time);
+      const regEndMins = timeToMinutes(reg.end_time);
+
+      if (candStartMins < regEndMins && candEndMins > regStartMins) {
+        return res.status(409).json({ 
+          error: `Time conflict with ${reg.title} (${reg.start_time} - ${reg.end_time})` 
+        });
+      }
+    }
+
+    // 4. Insert or Update status for THIS specific (student, activity, date) combination
     const query = `
       INSERT INTO signtrue.attendance 
-      (student_id, activity_id, teacher_id, activity_date, status)
+        (student_id, activity_id, teacher_id, activity_date, status)
       VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (student_id, activity_date) 
+      ON CONFLICT (student_id, activity_id, activity_date) 
       DO UPDATE SET 
         status = EXCLUDED.status,
-        teacher_id = EXCLUDED.teacher_id,
-        activity_id = EXCLUDED.activity_id
-      RETURNING *
+        teacher_id = EXCLUDED.teacher_id
+      RETURNING *;
     `;
 
     const result = await pool.query(query, [
@@ -349,12 +382,13 @@ app.post('/signtrue/attendance/record', checkSecretKey, async (req, res) => {
       status || 'Pending'
     ]);
 
-    res.status(200).json(result.rows[0]);
+    return res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Attendance error:", err);
-    res.status(500).json({ error: "Attendance failed" });
+    return res.status(500).json({ error: "Attendance failed" });
   }
 });
+
 
 // 5B. GET STUDENT REGISTRATIONS BY DATE
 app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, res) => {
