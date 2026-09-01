@@ -1313,6 +1313,10 @@ app.post('/signtrue/reset-password', async (req, res) => {
 // USER MANAGEMENT ROUTES (SignTrue)
 // ===========================================================================
 
+// ===========================================================================
+// USER MANAGEMENT ROUTES (SignTrue)
+// ===========================================================================
+
 // 17. GET USERS FOR ADMIN'S SCHOOL
 app.get('/signtrue/users', checkSecretKey, async (req, res) => {
   const { school_id } = req.query;
@@ -1389,7 +1393,6 @@ app.post('/signtrue/users', checkSecretKey, async (req, res) => {
   }
 
   try {
-    const bcrypt = require('bcryptjs');
     const rawPassword = password && password.trim() !== '' ? password : local_id.toString();
     const passwordHash = await bcrypt.hash(rawPassword, 10);
 
@@ -1453,8 +1456,6 @@ app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
   } = req.body;
 
   try {
-    const bcrypt = require('bcryptjs');
-
     let updateQuery;
     let values;
 
