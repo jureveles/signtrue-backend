@@ -134,7 +134,7 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
       SELECT 
         a.id,
         a.title,
-        a.instructor,
+        a.teacher,
         a.start_time,
         a.end_time,
         a.day_of_week,
@@ -170,7 +170,7 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
 app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
   const {
     title,
-    instructor,
+    teacher,
     start_time,
     end_time,
     day_of_week,
@@ -182,14 +182,14 @@ app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
   try {
     const query = `
       INSERT INTO signtrue.activities 
-      (title, instructor, start_time, end_time, day_of_week, activity_date, location, max_capacity) 
+      (title, teacher, start_time, end_time, day_of_week, activity_date, location, max_capacity) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
       RETURNING *;
     `;
 
     const values = [
       title,
-      instructor,
+      teacher,
       start_time,
       end_time,
       day_of_week,
@@ -212,7 +212,7 @@ app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
   const { id } = req.params;
   const {
     title,
-    instructor,
+    teacher,
     start_time,
     end_time,
     day_of_week,
@@ -227,7 +227,7 @@ app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
       UPDATE signtrue.activities 
       SET 
         title = $1, 
-        instructor = $2, 
+        teacher = $2, 
         start_time = $3, 
         end_time = $4, 
         day_of_week = $5, 
@@ -241,7 +241,7 @@ app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
 
     const values = [
       title,
-      instructor,
+      teacher,
       start_time,
       end_time,
       day_of_week,
@@ -399,7 +399,7 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
         COALESCE(u.first_name, '') AS first_name,
         COALESCE(u.last_name, '') AS last_name,
         a.title AS class,
-        a.instructor AS instructor, -- <--- ADDED INSTRUCTOR HERE
+        a.teacher AS teacher, -- <--- ADDED teacher HERE
         a.start_time,
         a.end_time,
         att.activity_date
