@@ -1409,8 +1409,6 @@ app.get('/signtrue/users', checkSecretKey, async (req, res) => {
 
 // 18. CREATE A NEW USER
 app.post('/signtrue/users', checkSecretKey, async (req, res) => {
-  console.log('--- [ROUTE 18 REACHED] ---');
-  console.log('Request Body:', req.body);
   const { 
     local_id, 
     first_name, 
@@ -1465,9 +1463,7 @@ app.post('/signtrue/users', checkSecretKey, async (req, res) => {
       passwordHash
     ];
 
-    console.log('Executing DB Query with values:', values);
     const result = await pool.query(query, values);
-    console.log('DB Query Success! Returned Row:', result.rows[0]);
     
     return res.status(201).json(result.rows[0]);
   } catch (err) {
