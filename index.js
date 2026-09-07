@@ -12,6 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 
 // Database connection
 const pool = new Pool({
