@@ -1159,7 +1159,6 @@ app.post('/signtrue/forgot-password', async (req, res) => {
       SELECT id, email, first_name
       FROM signtrue.users
       WHERE LOWER(email) = $1
-        AND role = 'staff'
         AND is_active = true
       LIMIT 1
       `,
@@ -1202,7 +1201,7 @@ app.post('/signtrue/forgot-password', async (req, res) => {
       from: `"SignTrue Support" <${smtpFrom}>`,
      
       to: normalizedEmail,
-      subject: 'Your Sacred Heart RVA SignTrue Password Reset Code',
+      subject: 'SignTrue Password Reset Code',
       html: `
         <div style="
           font-family: Arial, sans-serif;
