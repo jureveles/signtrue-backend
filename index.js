@@ -184,14 +184,18 @@ app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
     day_of_week,
     activity_date,
     location,
-    max_capacity
+    max_capacity,
+    school_id,
+    schoolId
   } = req.body;
+
+  const targetSchoolId = school_id || schoolId || 1; // Default fallback if missing
 
   try {
     const query = `
       INSERT INTO signtrue.activities 
-      (title, teacher, start_time, end_time, day_of_week, activity_date, location, max_capacity) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+      (title, teacher, start_time, end_time, day_of_week, activity_date, location, max_capacity, school_id) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
       RETURNING *;
     `;
 
@@ -203,7 +207,8 @@ app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
       day_of_week,
       activity_date,
       location,
-      max_capacity !== undefined && max_capacity !== null ? parseInt(max_capacity, 10) : 20
+      max_capacity !== undefined && max_capacity !== null ? parseInt(max_capacity, 10) : 20,
+      targetSchoolId
     ];
 
     const result = await pool.query(query, values);
@@ -227,8 +232,12 @@ app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
     activity_date,
     location,
     max_capacity,
-    is_active
+    is_active,
+    school_id,
+    schoolId
   } = req.body;
+
+  const targetSchoolId = school_id || schoolId;
 
   try {
     const query = `
@@ -242,8 +251,9 @@ app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
         activity_date = $6, 
         location = $7, 
         max_capacity = $8,
-        is_active = COALESCE($9, is_active)
-      WHERE id = $10
+        is_active = COALESCE($9, is_active),
+        school_id = COALESCE($10, school_id)
+      WHERE id = $11
       RETURNING *;
     `;
 
@@ -257,6 +267,7 @@ app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
       location,
       max_capacity !== undefined && max_capacity !== null ? parseInt(max_capacity, 10) : 20,
       is_active !== undefined ? is_active : true,
+      targetSchoolId || null,
       id
     ];
 
@@ -272,7 +283,6 @@ app.put('/signtrue/activities/:id', checkSecretKey, async (req, res) => {
     res.status(500).json({ error: "Could not update activity" });
   }
 });
-
 
 // 4. GET ENROLLMENT FOR ACTIVITY BY DATE
 app.get('/signtrue/attendance/activity/:activityId', checkSecretKey, async (req, res) => {
