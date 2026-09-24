@@ -448,6 +448,7 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   try {
     const query = `
       SELECT 
+        a.school_id,
         att.student_id AS student_id,
         COALESCE(u.first_name, '') AS first_name,
         COALESCE(u.last_name, '') AS last_name,
@@ -455,7 +456,8 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
         a.teacher AS teacher, -- <--- ADDED teacher HERE
         a.start_time,
         a.end_time,
-        att.activity_date
+        att.activity_date,
+        att.status
       FROM signtrue.attendance att
       JOIN signtrue.activities a 
         ON att.activity_id::text = a.id::text
