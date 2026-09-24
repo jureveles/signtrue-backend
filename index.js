@@ -129,7 +129,6 @@ app.post('/signtrue/login', checkSecretKey, async (req, res) => {
 // 2. ACTIVITIES BY DATE
 app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
   const { date } = req.params;
-  // Extract school_id from query parameters (supports school_id or schoolId)
   const schoolId = req.query.school_id || req.query.schoolId;
 
   try {
@@ -156,7 +155,6 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
 
     const queryParams = [date];
 
-    // Dynamically append school_id filter if provided by the client
     if (schoolId) {
       queryParams.push(schoolId);
       query += ` AND a.school_id = $${queryParams.length}`;
@@ -167,21 +165,14 @@ app.get('/signtrue/activities/date/:date', checkSecretKey, async (req, res) => {
       ORDER BY a.start_time ASC
     `;
 
-    console.log(`[BACKEND LOG] Fetching activities for Date: ${date}, School ID: ${schoolId || 'ALL'}`);
-
     const result = await pool.query(query, queryParams);
-
-    // DEBUG LOG: Print sample result
-    if (result.rows.length > 0) {
-      console.log("DB RAW ROW SAMPLE WITH ENROLLED COUNT:", result.rows[0]);
-    }
-    
     res.json(result.rows);
   } catch (err) {
     console.error("Fetch activities by date error:", err);
     res.status(500).json({ error: "Error fetching activities" });
   }
 });
+
 
 // 3. CREATE NEW ACTIVITY HERE
 app.post('/signtrue/activities/create', checkSecretKey, async (req, res) => {
