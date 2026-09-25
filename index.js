@@ -1373,14 +1373,6 @@ app.post('/signtrue/reset-password', async (req, res) => {
 // USER MANAGEMENT ROUTES (SignTrue)
 // ===========================================================================
 
-// ===========================================================================
-// USER MANAGEMENT ROUTES (SignTrue)
-// ===========================================================================
-
-// ===========================================================================
-// USER MANAGEMENT ROUTES (SignTrue)
-// ===========================================================================
-
 // 17. GET USERS FOR ADMIN'S SCHOOL
 app.get('/signtrue/users', checkSecretKey, async (req, res) => {
   const { school_id } = req.query;
@@ -1605,6 +1597,51 @@ app.put('/signtrue/users/:id', checkSecretKey, async (req, res) => {
   }
 });
 
+// 20. REASSIGN STUDENTS TO SESSIONS
+// MOVE STUDENT TO A DIFFERENT SESSION
+
+app.put('/signtrue/attendance/reassign', checkSecretKey, async (req, res) => {
+  const { student_id, current_activity_id, new_activity_id, activity_date } = req.body;
+
+  console.log("=== REASSIGN STUDENT REQUEST ===");
+  console.log("Params:", { student_id, current_activity_id, new_activity_id, activity_date });
+
+  if (!student_id || !current_activity_id || !new_activity_id || !activity_date) {
+    return res.status(400).json({
+      error: "Missing required fields: student_id, current_activity_id, new_activity_id, activity_date"
+    });
+  }
+
+  try {
+    const query = `
+      UPDATE signtrue.attendance
+      SET activity_id = $1
+      WHERE student_id::text = $2::text
+        AND activity_id::text = $3::text
+        AND activity_date::date = $4::date
+      RETURNING *;
+    `;
+
+    const result = await pool.query(query, [
+      new_activity_id,
+      student_id,
+      current_activity_id,
+      activity_date
+    ]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        error: "No matching attendance record found to update."
+      });
+    }
+
+    console.log(`Successfully moved student ${student_id} to activity ${new_activity_id}`);
+    res.json({ success: true, updatedRecord: result.rows[0] });
+  } catch (err) {
+    console.error("Reassign student error:", err);
+    res.status(500).json({ error: "Error reassigning student session" });
+  }
+});
 
 // ===========================================================================
 // SERVER START
