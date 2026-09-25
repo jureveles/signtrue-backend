@@ -434,10 +434,11 @@ app.get('/signtrue/attendance/student/:studentId', checkSecretKey, async (req, r
 
 // 5C. GET ATTENDANCE/ENROLLMENT REPORT BY DATE RANGE
 app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
-  const { start_date, end_date } = req.query;
+  // 1. Extract school_id alongside start_date and end_date
+  const { start_date, end_date, school_id } = req.query;
 
   console.log("=== REPORT REQUEST ===");
-  console.log("Params:", { start_date, end_date });
+  console.log("Params:", { start_date, end_date, school_id });
 
   if (!start_date || !end_date) {
     return res.status(400).json({
@@ -446,6 +447,15 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
   }
 
   try {
+    const queryParams = [start_date, end_date];
+    let schoolFilter = "";
+
+    // 2. Dynamically append school_id filter if passed
+    if (school_id) {
+      queryParams.push(school_id);
+      schoolFilter = `AND a.school_id::text = $${queryParams.length}::text`;
+    }
+
     const query = `
       SELECT 
         a.school_id,
@@ -453,7 +463,7 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
         COALESCE(u.first_name, '') AS first_name,
         COALESCE(u.last_name, '') AS last_name,
         a.title AS class,
-        a.teacher AS teacher, -- <--- ADDED teacher HERE
+        a.teacher AS teacher,
         a.start_time,
         a.end_time,
         att.activity_date,
@@ -464,10 +474,11 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
       LEFT JOIN signtrue.users u 
         ON att.student_id::text = u.local_id::text
       WHERE att.activity_date::date BETWEEN $1::date AND $2::date
+      ${schoolFilter}
       ORDER BY att.activity_date DESC, a.title ASC, u.last_name ASC;
     `;
 
-    const result = await pool.query(query, [start_date, end_date]);
+    const result = await pool.query(query, queryParams);
     console.log(`Found ${result.rows.length} attendance/enrollment records.`);
     
     res.json(result.rows);
@@ -476,7 +487,6 @@ app.get('/signtrue/attendance/report', checkSecretKey, async (req, res) => {
     res.status(500).json({ error: "Error fetching attendance report" });
   }
 });
-
 
 // 6. SCHOOLS LIST (UPDATED STRUCTURAL RESPONSE)
 app.get('/signtrue/schools-list', checkSecretKey, async (req, res) => {
